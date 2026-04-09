@@ -1,0 +1,13 @@
+name = "Wolfram2Julia"
+uuid = "9f5f0e7c-dbda-4f31-8dbc-78b2b31ccc03"
+authors = ["Sebastian"]
+version = "0.1.0"
+
+[compat]
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-358e-ad98-d0c6f9fc87a0"
+
+[targets]
+test = ["Test"]
