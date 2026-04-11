@@ -138,6 +138,7 @@ function _translate(e::MExpr, parent_prec::Int)::String
     end
 
     if n == "Log"
+        length(e.args) in (1, 2) || throw(TranslationError("Log requires 1 or 2 args, got $(length(e.args))"))
         if length(e.args) == 1
             return "log($(_translate(e.args[1], PREC_LOW)))"
         elseif length(e.args) == 2

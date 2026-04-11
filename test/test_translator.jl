@@ -87,4 +87,9 @@
         @test translate(MExprNode("Slot", MExpr[MInteger(2)])) == "_s2"
     end
 
+    @testset "Log arity validation" begin
+        @test_throws TranslationError translate(MExprNode("Log", MExpr[]))
+        @test_throws TranslationError translate(MExprNode("Log", MExpr[MSymbol("x"), MSymbol("y"), MSymbol("z")]))
+    end
+
 end
