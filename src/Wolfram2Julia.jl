@@ -15,7 +15,7 @@ export MExpr, MInteger, MReal, MSymbol, MString, MExprNode
 export is_head, head_name
 
 # Lexer
-export Token, TokenKind, tokenize
+export Token, TokenKind, tokenize, LexError
 export TK_INTEGER, TK_REAL, TK_SYMBOL, TK_STRING
 export TK_LBRACKET, TK_RBRACKET, TK_LPAREN, TK_RPAREN, TK_LBRACE, TK_RBRACE, TK_COMMA
 export TK_SEMICOLON, TK_SETDELAYED, TK_SET, TK_RULEDELAYED, TK_RULE

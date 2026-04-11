@@ -1,3 +1,13 @@
+struct LexError <: Exception
+    message::String
+    line::Int
+    col::Int
+end
+
+function Base.showerror(io::IO, e::LexError)
+    print(io, "LexError at $(e.line):$(e.col): $(e.message)")
+end
+
 mutable struct Lexer
     source::String
     pos::Int    # current byte position (1-based)
@@ -205,8 +215,8 @@ function next_token!(lx::Lexer)::Token
         return Token(TK_SET, "=", line, col)
     end
 
-    # Unknown character — skip and recurse
-    return next_token!(lx)
+    # Unknown character — error with location
+    throw(LexError("Unexpected character '$(c)'", line, col))
 end
 
 function _read_number!(lx::Lexer, line::Int, col::Int)::Token
