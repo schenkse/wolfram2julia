@@ -26,6 +26,10 @@ const SYMBOL_MAP = Dict(
     "Null"     => "nothing",
 )
 
+# Heads that are explicitly unsupported — throw rather than emit broken Julia
+const UNSUPPORTED_HEADS = ("If", "Which", "Switch", "Do", "While", "For",
+                           "Dot", "Transpose", "Inverse")
+
 # Pattern type annotation mapping: Mathematica head → Julia type
 const PATTERN_TYPE_MAP = Dict(
     "Integer" => "Int",
@@ -222,6 +226,12 @@ function _translate(e::MExpr, parent_prec::Int)::String
     if n == "RuleDelayed"
         length(e.args) == 2 || throw(TranslationError("RuleDelayed requires 2 args"))
         return "$(_translate(e.args[1], PREC_LOW)) => $(_translate(e.args[2], PREC_LOW))"
+    end
+
+    # ── Explicitly unsupported constructs ────────────────────────────────────
+
+    if n !== nothing && n in UNSUPPORTED_HEADS
+        throw(TranslationError("$n is not yet supported"))
     end
 
     # ── Generic function call fallback ───────────────────────────────────────

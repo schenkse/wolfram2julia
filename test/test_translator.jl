@@ -92,4 +92,14 @@
         @test_throws TranslationError translate(MExprNode("Log", MExpr[MSymbol("x"), MSymbol("y"), MSymbol("z")]))
     end
 
+    @testset "unsupported constructs throw TranslationError" begin
+        @test_throws TranslationError translate(MExprNode("If",    MExpr[MSymbol("c"), MInteger(1), MInteger(-1)]))
+        @test_throws TranslationError translate(MExprNode("Do",    MExpr[MSymbol("body"), MSymbol("iter")]))
+        @test_throws TranslationError translate(MExprNode("While", MExpr[MSymbol("cond"), MSymbol("body")]))
+        @test_throws TranslationError translate(MExprNode("For",   MExpr[MSymbol("init"), MSymbol("test"), MSymbol("incr"), MSymbol("body")]))
+        @test_throws TranslationError translate(MExprNode("Dot",   MExpr[MSymbol("A"), MSymbol("B")]))
+        @test_throws TranslationError translate(MExprNode("Transpose", MExpr[MSymbol("A")]))
+        @test_throws TranslationError translate(MExprNode("Inverse",   MExpr[MSymbol("A")]))
+    end
+
 end
