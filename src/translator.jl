@@ -1,9 +1,17 @@
 struct TranslationError <: Exception
     message::String
+    line::Int
+    col::Int
+    TranslationError(message::String, line::Int=0, col::Int=0) =
+        new(message, line, col)
 end
 
 function Base.showerror(io::IO, e::TranslationError)
-    print(io, "TranslationError: $(e.message)")
+    if e.line > 0
+        print(io, "TranslationError at $(e.line):$(e.col): $(e.message)")
+    else
+        print(io, "TranslationError: $(e.message)")
+    end
 end
 
 # Precedence levels used for parenthesization decisions

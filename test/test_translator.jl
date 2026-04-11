@@ -102,4 +102,16 @@
         @test_throws TranslationError translate(MExprNode("Inverse",   MExpr[MSymbol("A")]))
     end
 
+    @testset "TranslationError source location" begin
+        e_no_loc = TranslationError("something failed")
+        @test e_no_loc.line == 0
+        @test e_no_loc.col  == 0
+        @test sprint(showerror, e_no_loc) == "TranslationError: something failed"
+
+        e_with_loc = TranslationError("something failed", 5, 12)
+        @test e_with_loc.line == 5
+        @test e_with_loc.col  == 12
+        @test sprint(showerror, e_with_loc) == "TranslationError at 5:12: something failed"
+    end
+
 end

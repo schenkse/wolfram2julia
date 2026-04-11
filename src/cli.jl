@@ -59,7 +59,7 @@ function main(args::Vector{String} = ARGS)::Int
             println(stderr, "Parse error at $(e.line):$(e.col): $(e.message)")
             return 1
         elseif e isa TranslationError
-            println(stderr, "Translation error: $(e.message)")
+            println(stderr, sprint(showerror, e))
             return 1
         else
             rethrow(e)
