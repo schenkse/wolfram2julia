@@ -26,6 +26,15 @@ const SYMBOL_MAP = Dict(
     "Null"     => "nothing",
 )
 
+# Pattern type annotation mapping: Mathematica head → Julia type
+const PATTERN_TYPE_MAP = Dict(
+    "Integer" => "Int",
+    "Real"    => "Float64",
+    "String"  => "String",
+    "Symbol"  => "Symbol",
+    "Complex" => "Complex",
+)
+
 # Return the natural precedence of an expression (for parenthesization)
 function _natural_prec(e::MExpr)::Int
     e isa MInteger  && return PREC_ATOM
@@ -325,7 +334,17 @@ end
 
 function _strip_pattern(e::MExpr)::String
     if is_head(e, "Pattern")
-        return _translate(e.args[1], PREC_LOW)
+        var_str = _translate(e.args[1], PREC_LOW)
+        if length(e.args) >= 2
+            blank = e.args[2]
+            if is_head(blank, "Blank") && !isempty(blank.args) && blank.args[1] isa MSymbol
+                julia_type = get(PATTERN_TYPE_MAP, blank.args[1].name, nothing)
+                if julia_type !== nothing
+                    return "$(var_str)::$(julia_type)"
+                end
+            end
+        end
+        return var_str
     end
     _translate(e, PREC_LOW)
 end

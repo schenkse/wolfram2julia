@@ -6,8 +6,14 @@
     @test translate_string("f[x_, y_] := x^2 + y^2") == "f(x, y) = x^2 + y^2"
     @test translate_string("square[n_] := n^2")       == "square(n) = n^2"
 
-    # Typed patterns — type annotation stripped in v1
-    @test translate_string("f[x_Integer] := x + 1")  == "f(x) = x + 1"
+    # Typed patterns → Julia type annotations
+    @test translate_string("f[x_Integer] := x + 1")  == "f(x::Int) = x + 1"
+    @test translate_string("f[x_Real] := x + 1.0")   == "f(x::Float64) = x + 1.0"
+    @test translate_string("f[x_String] := x")       == "f(x::String) = x"
+    @test translate_string("f[x_Symbol] := x")       == "f(x::Symbol) = x"
+    @test translate_string("f[x_Complex] := x")      == "f(x::Complex) = x"
+    # Unknown type head → annotation dropped (no mapping)
+    @test translate_string("f[x_MyType] := x")       == "f(x) = x"
 
     # Function calls
     @test translate_string("f[x]")                   == "f(x)"
