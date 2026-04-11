@@ -294,7 +294,8 @@ function _translate_times(args::Vector{MExpr}, parent_prec::Int)::String
     if isempty(dens)
         # _translate(a, PREC_MUL) already inserts parens when needed via _wrap
         parts = [_translate(a, PREC_MUL) for a in nums]
-        return neg_prefix * join(parts, " * ")
+        result = isempty(parts) ? "1" : join(parts, " * ")
+        return neg_prefix * result
     else
         num_str = if isempty(nums)
             "1"

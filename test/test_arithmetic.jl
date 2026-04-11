@@ -39,4 +39,7 @@
     # List
     @test translate_string("{1, 2, 3}")          == "[1, 2, 3]"
 
+    # Times[-1] edge case
+    @test translate(MExprNode("Times", MExpr[MInteger(-1)])) == "-1"
+
 end
