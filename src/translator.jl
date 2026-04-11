@@ -48,8 +48,22 @@ const MATH_FUNC1_MAP = Dict(
     "Floor"   => "floor",
     "Ceiling" => "ceil",
     "Round"   => "round",
-    "Re"      => "real",
-    "Im"      => "imag",
+    "Re"        => "real",
+    "Im"        => "imag",
+    "Conjugate" => "conj",
+    "Log2"      => "log2",
+    "Log10"     => "log10",
+    "Total"     => "sum",
+)
+
+# N-ary math function mapping: Wolfram head → Julia function name (1+ args, all passed through)
+const MATH_FUNC_NARY_MAP = Dict(
+    "Mod"  => "mod",
+    "Max"  => "max",
+    "Min"  => "min",
+    "GCD"  => "gcd",
+    "LCM"  => "lcm",
+    "Mean" => "Statistics.mean",
 )
 
 # Heads that are explicitly unsupported — throw rather than emit broken Julia
@@ -169,6 +183,13 @@ function _translate(e::MExpr, parent_prec::Int)::String
         jname = MATH_FUNC1_MAP[n]
         length(e.args) == 1 || throw(TranslationError("$n requires 1 arg"))
         return "$(jname)($(_translate(e.args[1], PREC_LOW)))"
+    end
+
+    if haskey(MATH_FUNC_NARY_MAP, n)
+        jname = MATH_FUNC_NARY_MAP[n]
+        isempty(e.args) && throw(TranslationError("$n requires at least 1 arg"))
+        args_str = join([_translate(a, PREC_LOW) for a in e.args], ", ")
+        return "$(jname)($(args_str))"
     end
 
     if n == "Log"

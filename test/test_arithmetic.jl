@@ -28,6 +28,19 @@
     @test translate_string("Abs[x]")             == "abs(x)"
     @test translate_string("Log[2, x]")          == "log(2, x)"
 
+    # Additional math functions
+    @test translate_string("Mod[10, 3]")     == "mod(10, 3)"
+    @test translate_string("Max[a, b]")      == "max(a, b)"
+    @test translate_string("Max[a, b, c]")   == "max(a, b, c)"
+    @test translate_string("Min[a, b]")      == "min(a, b)"
+    @test translate_string("GCD[12, 8]")     == "gcd(12, 8)"
+    @test translate_string("LCM[4, 6]")      == "lcm(4, 6)"
+    @test translate_string("Conjugate[z]")   == "conj(z)"
+    @test translate_string("Log2[x]")        == "log2(x)"
+    @test translate_string("Log10[x]")       == "log10(x)"
+    @test translate_string("Total[{1,2,3}]") == "sum([1, 2, 3])"
+    @test translate_string("Mean[{1,2,3}]")  == "Statistics.mean([1, 2, 3])"
+
     # Symbol remapping
     @test translate_string("Sin[Pi]")            == "sin(pi)"
     @test translate_string("Exp[1]")             == "exp(1)"
