@@ -225,7 +225,8 @@ function _translate(e::MExpr, parent_prec::Int)::String
 
     if n == "RuleDelayed"
         length(e.args) == 2 || throw(TranslationError("RuleDelayed requires 2 args"))
-        return "$(_translate(e.args[1], PREC_LOW)) => $(_translate(e.args[2], PREC_LOW))"
+        # :> delays evaluation of the RHS; represent as a thunk to preserve the distinction
+        return "$(_translate(e.args[1], PREC_LOW)) => (() -> $(_translate(e.args[2], PREC_LOW)))"
     end
 
     # ── Explicitly unsupported constructs ────────────────────────────────────
