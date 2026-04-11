@@ -34,6 +34,24 @@ const SYMBOL_MAP = Dict(
     "Null"     => "nothing",
 )
 
+# 1-argument math function mapping: Wolfram head → Julia function name
+const MATH_FUNC1_MAP = Dict(
+    "Sin"     => "sin",
+    "Cos"     => "cos",
+    "Tan"     => "tan",
+    "ArcSin"  => "asin",
+    "ArcCos"  => "acos",
+    "ArcTan"  => "atan",
+    "Exp"     => "exp",
+    "Abs"     => "abs",
+    "Sign"    => "sign",
+    "Floor"   => "floor",
+    "Ceiling" => "ceil",
+    "Round"   => "round",
+    "Re"      => "real",
+    "Im"      => "imag",
+)
+
 # Heads that are explicitly unsupported — throw rather than emit broken Julia
 const UNSUPPORTED_HEADS = ("If", "Which", "Switch", "Do", "While", "For",
                            "Dot", "Transpose", "Inverse")
@@ -147,15 +165,10 @@ function _translate(e::MExpr, parent_prec::Int)::String
         return "sqrt($(_translate(e.args[1], PREC_LOW)))"
     end
 
-    for (wname, jname) in (("Sin","sin"),("Cos","cos"),("Tan","tan"),
-                            ("ArcSin","asin"),("ArcCos","acos"),("ArcTan","atan"),
-                            ("Exp","exp"),("Abs","abs"),("Sign","sign"),
-                            ("Floor","floor"),("Ceiling","ceil"),("Round","round"),
-                            ("Re","real"),("Im","imag"))
-        if n == wname
-            length(e.args) == 1 || throw(TranslationError("$n requires 1 arg"))
-            return "$(jname)($(_translate(e.args[1], PREC_LOW)))"
-        end
+    if haskey(MATH_FUNC1_MAP, n)
+        jname = MATH_FUNC1_MAP[n]
+        length(e.args) == 1 || throw(TranslationError("$n requires 1 arg"))
+        return "$(jname)($(_translate(e.args[1], PREC_LOW)))"
     end
 
     if n == "Log"
