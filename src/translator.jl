@@ -38,6 +38,7 @@ function _natural_prec(e::MExpr)::Int
     n in ("Plus",)       && return PREC_ADD
     n in ("Times",)      && return PREC_MUL
     n in ("Power",)      && return PREC_POWER
+    n in ("SetDelayed", "Set", "CompoundExpression", "Rule", "RuleDelayed", "Function") && return PREC_LOW
     return PREC_CALL
 end
 
