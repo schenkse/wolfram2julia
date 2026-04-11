@@ -77,6 +77,11 @@
         @test translate(e) == "a"
     end
 
+    @testset "CompoundExpression trailing semicolon" begin
+        # a; b; parses as CompoundExpression[a, b, Null]; Null is dropped
+        @test translate_string("a; b;") == "a\nb"
+    end
+
     @testset "Rule" begin
         e = MExprNode("Rule", MExpr[MSymbol("a"), MInteger(1)])
         @test translate(e) == "a => 1"

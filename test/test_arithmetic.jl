@@ -55,4 +55,7 @@
     # Times[-1] edge case
     @test translate(MExprNode("Times", MExpr[MInteger(-1)])) == "-1"
 
+    # 3-arg negation: Times[-1, x, y] → -x * y
+    @test translate(MExprNode("Times", MExpr[MInteger(-1), MSymbol("x"), MSymbol("y")])) == "-x * y"
+
 end

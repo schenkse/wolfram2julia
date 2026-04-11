@@ -36,6 +36,9 @@
     # Set (plain assignment)
     @test translate_string("x = 5")                  == "x = 5"
 
+    # Set with pattern LHS (f[x_] = body)
+    @test translate_string("f[x_] = x^2")            == "f(x) = x^2"
+
     # Rule
     @test translate_string("x -> 5")                 == "x => 5"
 

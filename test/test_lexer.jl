@@ -74,6 +74,16 @@
         @test toks[1].lexeme == "_"
     end
 
+    @testset "standalone blank with type" begin
+        # _Integer (no leading symbol) tokenises as two separate tokens:
+        # TK_BLANK("_") followed by TK_SYMBOL("Integer")
+        toks = tokenize("_Integer")
+        @test toks[1].kind == TK_BLANK
+        @test toks[1].lexeme == "_"
+        @test toks[2].kind == TK_SYMBOL
+        @test toks[2].lexeme == "Integer"
+    end
+
     @testset "slots" begin
         toks = tokenize("#")
         @test toks[1].kind == TK_SLOT
