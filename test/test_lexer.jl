@@ -158,3 +158,11 @@ end
         @test (err.line, err.col) == (2, 3)
     end
 end
+
+@testset "string line continuations" begin
+    for newline in ("\n", "\r\n")
+        source = "\"α\\" * newline * "β\""
+        @test tokenize(source)[1].lexeme == "αβ"
+        @test Core.eval(Module(), Meta.parse(translate_string(source))) == "αβ"
+    end
+end

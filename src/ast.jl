@@ -4,6 +4,10 @@ struct MInteger <: MExpr
     value::Union{Int64,BigInt}
 end
 
+# Retain numeric conversions accepted by the original Int64 constructor.
+MInteger(value::Integer) = MInteger(typemin(Int64) <= value <= typemax(Int64) ? Int64(value) : BigInt(value))
+MInteger(value::Real) = MInteger(Int64(value))
+
 Base.:(==)(a::MInteger, b::MInteger) = a.value == b.value
 
 struct MReal <: MExpr
@@ -29,7 +33,7 @@ struct MExprNode <: MExpr
     col::Int
 end
 
-MExprNode(head::MExpr, args::Vector{MExpr}) = MExprNode(head, args, 0, 0)
+MExprNode(head::MExpr, args; line::Int=0, col::Int=0) = MExprNode(head, args, line, col)
 Base.:(==)(a::MExprNode, b::MExprNode) = a.head == b.head && a.args == b.args
 
 # Convenience constructor: MExprNode("Plus", a, b)

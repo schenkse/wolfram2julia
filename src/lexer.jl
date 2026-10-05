@@ -110,6 +110,11 @@ function next_token!(lx::Lexer)::Token
                 _advance!(lx)
                 lx.pos <= ncodeunits(lx.source) || throw(LexError("Unfinished string escape", line, col))
                 esc = _cur(lx)
+                if esc == '\n' || (esc == '\r' && _peek(lx) == '\n')
+                    esc == '\r' && _advance!(lx)
+                    _advance!(lx)
+                    continue
+                end
                 _advance!(lx)
                 write(buf, esc == 'n' ? '\n' :
                            esc == 't' ? '\t' :

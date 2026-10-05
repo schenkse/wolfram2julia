@@ -136,3 +136,16 @@ end
         @test (error.line, error.col) == location
     end
 end
+
+@testset "AST constructor compatibility" begin
+    @test MInteger(Int32(1)) == MInteger(1)
+    @test MInteger(UInt8(2)) == MInteger(2)
+    @test MInteger(1.0) == MInteger(1)
+    @test MInteger(typemax(UInt64)).value == big(typemax(UInt64))
+    node = MExprNode(MSymbol("f"), [MInteger(1)])
+    @test node == MExprNode("f", MInteger(1))
+    @test (node.line, node.col) == (0,0)
+    located = MExprNode(MSymbol("f"), [MInteger(1)]; line=2, col=3)
+    @test located == node
+    @test (located.line, located.col) == (2,3)
+end
