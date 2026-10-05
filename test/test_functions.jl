@@ -65,3 +65,21 @@ end
         @test Base.invokelatest(Core.eval(m, :g), Float32(2)) isa Float32
     end
 end
+
+@testset "sequence patterns" begin
+    for (source, expected) in (
+        ("f[x___] := x; f[]", ()),
+        ("f[x__] := x; f[1,2,3]", (1,2,3)),
+        ("f[a_, x__] := {a,x}; f[0,1,2]", [0,1,2]),
+        ("f[x___Integer] := Plus[x]; f[1,2,3]", 6),
+        ("f[x__Integer] := Max[x]; f[1,2,3]", 3),
+        ("f[x___] := g[x]; g[a_, b_] := a+b; f[2,3]", 5),
+        ("f[x___] := Function[{x}, {x}]; f[1,2][3]", [3]))
+        @test Core.eval(Module(), Meta.parse("begin\n" * translate_string(source) * "\nend")) == expected
+    end
+    @test_throws MethodError Core.eval(Module(), Meta.parse("begin\n" * translate_string("f[x__] := x; f[]") * "\nend"))
+    @test_throws MethodError Core.eval(Module(), Meta.parse("begin\n" * translate_string("f[x___Integer] := x; f[1.5]") * "\nend"))
+    @test_throws TranslationError translate_string("f[x__, y_] := x")
+    @test_throws TranslationError translate_string("f[x___, y___] := x")
+    @test_throws TranslationError translate_string("f[x___Unknown] := x")
+end
