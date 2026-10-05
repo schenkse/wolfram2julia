@@ -66,3 +66,13 @@ end
     @test Core.eval(Module(), Meta.parse(translate_string("24/(2*3)"))) == 4
     @test Core.eval(Module(), Meta.parse(translate_string("24/2/3"))) == 4
 end
+
+@testset "power grouping" begin
+    @test translate_string("(a^b)^c") == "(a^b)^c"
+    @test Core.eval(Module(), Meta.parse(translate_string("(2^3)^2"))) == 64
+    for base in (MInteger(-2), MReal(-2.0))
+        code = translate(MExprNode("Power", base, MInteger(2)))
+        @test startswith(code, "(-2")
+        @test Core.eval(Module(), Meta.parse(code)) == 4
+    end
+end

@@ -81,8 +81,8 @@ const PATTERN_TYPE_MAP = Dict(
 
 # Return the natural precedence of an expression (for parenthesization)
 function _natural_prec(e::MExpr)::Int
-    e isa MInteger  && return PREC_ATOM
-    e isa MReal     && return PREC_ATOM
+    e isa MInteger  && return e.value < 0 ? PREC_UNARY : PREC_ATOM
+    e isa MReal     && return signbit(e.value) ? PREC_UNARY : PREC_ATOM
     e isa MString   && return PREC_ATOM
     e isa MSymbol   && return PREC_ATOM
     e isa MExprNode || return PREC_ATOM
@@ -132,11 +132,11 @@ end
 
 function _translate(e::MExpr, parent_prec::Int)::String
     if e isa MInteger
-        return string(e.value)
+        return _wrap(string(e.value), e, parent_prec)
     end
 
     if e isa MReal
-        return string(e.value)
+        return _wrap(string(e.value), e, parent_prec)
     end
 
     if e isa MString
@@ -166,7 +166,7 @@ function _translate(e::MExpr, parent_prec::Int)::String
     if n == "Power"
         length(e.args) == 2 || throw(TranslationError("Power requires 2 args"))
         b, ex = e.args
-        bs = _translate(b, PREC_POWER)
+        bs = _translate(b, PREC_POWER + 1)
         es = _translate(ex, PREC_POWER)
         result = "$(bs)^$(es)"
         return _wrap(result, e, parent_prec)
