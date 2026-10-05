@@ -48,3 +48,22 @@ end
         end
     end
 end
+
+@testset "expected CLI failures" begin
+    for input in ("?", "\"unfinished", "(* unfinished", "1*^", "f[", "If[x,1,2]")
+        result = run_cli(; input)
+        @test result.status == 1
+        @test isempty(result.out)
+        @test !isempty(result.err)
+        @test !occursin("Stacktrace", result.err)
+    end
+    mktempdir() do dir
+        for path in (dir, joinpath(dir, "missing.wl"))
+            result = run_cli([path])
+            @test result.status == 1
+            @test isempty(result.out)
+            @test occursin("Error:", result.err)
+            @test !occursin("Stacktrace", result.err)
+        end
+    end
+end

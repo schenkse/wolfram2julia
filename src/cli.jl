@@ -40,54 +40,40 @@ function _cli_arguments(args::Vector{String})
 end
 
 function main(args::Vector{String} = ARGS)::Int
-    parsed = try
-        _cli_arguments(args)
-    catch e
-        e isa ArgumentError || rethrow(e)
-        println(stderr, "Error: $(e.msg)")
-        return 1
-    end
-    if parsed.help
-        print(USAGE)
-        return 0
-    elseif parsed.version
-        println(VERSION_STR)
-        return 0
-    end
-    positional = parsed.positional
-
-    source = if isempty(positional) || positional == ["-"]
-        if isempty(positional) && isa(stdin, Base.TTY)
-            print(stderr, USAGE)
-            return 1
-        end
-        read(stdin, String)
-    elseif length(positional) == 1
-        path = positional[1]
-        if !isfile(path)
-            println(stderr, "Error: file not found: $path")
-            return 1
-        end
-        read(path, String)
-    else
-        println(stderr, "Error: too many arguments")
-        print(stderr, USAGE)
-        return 1
-    end
-
     try
+        parsed = _cli_arguments(args)
+        if parsed.help
+            print(USAGE)
+            return 0
+        elseif parsed.version
+            println(VERSION_STR)
+            return 0
+        end
+        positional = parsed.positional
+        source = if isempty(positional) || positional == ["-"]
+            if isempty(positional) && isa(stdin, Base.TTY)
+                print(stderr, USAGE)
+                return 1
+            end
+            read(stdin, String)
+        else
+            path = only(positional)
+            isdir(path) && throw(ArgumentError("expected a file, got directory: $path"))
+            read(path, String)
+        end
         result = translate_string(source)
         println(result)
         return 0
     catch e
-        if e isa ParseError
-            println(stderr, "Parse error at $(e.line):$(e.col): $(e.message)")
-            return 1
-        elseif e isa TranslationError
+        if e isa Union{LexError,ParseError,TranslationError}
             println(stderr, sprint(showerror, e))
-            return 1
+        elseif e isa ArgumentError
+            println(stderr, "Error: $(e.msg)")
+        elseif e isa Union{SystemError,Base.IOError}
+            println(stderr, "Error: ", sprint(showerror, e))
         else
             rethrow(e)
         end
+        return 1
     end
 end
