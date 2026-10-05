@@ -95,13 +95,16 @@ function next_token!(lx::Lexer)::Token
     if c == '"'
         _advance!(lx)
         buf = IOBuffer()
+        closed = false
         while lx.pos <= ncodeunits(lx.source)
             ch = _cur(lx)
             if ch == '"'
                 _advance!(lx)
+                closed = true
                 break
             elseif ch == '\\'
                 _advance!(lx)
+                lx.pos <= ncodeunits(lx.source) || throw(LexError("Unfinished string escape", line, col))
                 esc = _cur(lx)
                 _advance!(lx)
                 write(buf, esc == 'n' ? '\n' :
@@ -112,6 +115,7 @@ function next_token!(lx::Lexer)::Token
                 write(buf, _advance!(lx))
             end
         end
+        closed || throw(LexError("Unterminated string", line, col))
         return Token(TK_STRING, String(take!(buf)), line, col)
     end
 

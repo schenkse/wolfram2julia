@@ -144,3 +144,12 @@ end
     @test err isa LexError
     @test err.col == 4
 end
+
+@testset "unterminated strings" begin
+    for source in ("  \"abc", "  \"abc\\")
+        err = try tokenize(source); catch e; e; end
+        @test err isa LexError
+        @test (err.line, err.col) == (1, 3)
+    end
+    @test tokenize("\"\"")[1].lexeme == ""
+end
