@@ -148,3 +148,10 @@
     end
 
 end
+
+@testset "prefix application" begin
+    @test translate_string("f@g@x") == "f(g(x))"
+    @test translate_string("f@g[x]") == "f(g(x))"
+    @test translate_string("f[x]@g[y]") == "f(x)(g(y))"
+    @test Core.eval(Module(), Meta.parse(translate_string("Sin@Cos[0]"))) == sin(cos(0))
+end

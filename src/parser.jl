@@ -204,7 +204,7 @@ function parse_call!(p::Parser)::MExpr
             expr = MExprNode(expr, args)
         elseif at(p, TK_AT)
             advance!(p)
-            arg = parse_atom!(p)
+            arg = parse_call!(p)
             expr = MExprNode(expr, MExpr[arg])
         else
             break
