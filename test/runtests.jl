@@ -7,4 +7,5 @@ using Wolfram2Julia
     include("test_translator.jl")
     include("test_arithmetic.jl")
     include("test_functions.jl")
+    include("test_cli.jl")
 end

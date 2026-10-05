@@ -1,7 +1,7 @@
 #!/usr/bin/env julia
 
 import Pkg
-Pkg.activate(joinpath(@__DIR__, ".."), io=devnull)
+Pkg.activate(joinpath(dirname(realpath(@__FILE__)), ".."), io=devnull)
 
 using Wolfram2Julia
 exit(Wolfram2Julia.main(ARGS))
