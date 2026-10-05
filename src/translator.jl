@@ -367,9 +367,9 @@ function _translate_times(args::Vector{MExpr}, parent_prec::Int)::String
             join([_translate(a, PREC_MUL) for a in nums], " * ")
         end
         den_str = if length(dens) == 1
-            _translate(dens[1], PREC_MUL)
+            _translate(dens[1], PREC_MUL + 1)
         else
-            join([_translate(a, PREC_MUL) for a in dens], " * ")
+            join((_translate(a, PREC_MUL + 1) for a in dens), " / ")
         end
         return "$(neg_prefix)$(num_str) / $(den_str)"
     end

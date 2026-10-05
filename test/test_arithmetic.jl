@@ -59,3 +59,10 @@
     @test translate(MExprNode("Times", MExpr[MInteger(-1), MSymbol("x"), MSymbol("y")])) == "-x * y"
 
 end
+
+@testset "denominator grouping" begin
+    @test translate_string("a/(b*c)") == "a / (b * c)"
+    @test translate_string("a/b/c") == "a / b / c"
+    @test Core.eval(Module(), Meta.parse(translate_string("24/(2*3)"))) == 4
+    @test Core.eval(Module(), Meta.parse(translate_string("24/2/3"))) == 4
+end
