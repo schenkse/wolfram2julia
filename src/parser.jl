@@ -233,7 +233,8 @@ function parse_atom!(p::Parser)::MExpr
 
     if t.kind == TK_INTEGER
         advance!(p)
-        return MInteger(parse(Int64, t.lexeme))
+        value = tryparse(Int64, t.lexeme)
+        return MInteger(value === nothing ? parse(BigInt, t.lexeme) : value)
     end
 
     if t.kind == TK_REAL

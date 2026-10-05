@@ -87,3 +87,12 @@ end
         @test_throws LexError translate_string(source)
     end
 end
+
+@testset "large integer literals" begin
+    for literal in ("9223372036854775808", "340282366920938463463374607431768211456")
+        @test parse_string(literal)[1].value == parse(BigInt, literal)
+        @test translate_string(literal) == literal
+        @test Core.eval(Module(), Meta.parse(translate_string(literal))) == parse(BigInt, literal)
+    end
+    @test MInteger(big(42)) == MInteger(42)
+end

@@ -1,8 +1,10 @@
 abstract type MExpr end
 
 struct MInteger <: MExpr
-    value::Int64
+    value::Union{Int64,BigInt}
 end
+
+Base.:(==)(a::MInteger, b::MInteger) = a.value == b.value
 
 struct MReal <: MExpr
     value::Float64
