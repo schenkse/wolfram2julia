@@ -200,3 +200,12 @@ end
     @test MExprNode("f", MInteger(1)).line == 0
     @test parse_string("f[x_Integer] := x")[1].args[1].args[1].col == 3
 end
+
+@testset "delimiter-aware argument lists" begin
+    @test isempty(parse_string("f[]")[1].args)
+    @test isempty(parse_string("{}")[1].args)
+    @test length(parse_string("f[{1,2},g[3]]")[1].args) == 2
+    for source in ("f[}", "{]", "f[1,]", "{1,}", "f[1}", "{1]")
+        @test_throws ParseError parse_string(source)
+    end
+end

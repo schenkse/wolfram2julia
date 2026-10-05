@@ -233,8 +233,7 @@ function parse_call!(p::Parser)::MExpr
         if at(p, TK_LBRACKET)
             advance!(p)
             p.depth += 1
-            args = parse_arglist!(p)
-            expect!(p, TK_RBRACKET)
+            args = parse_arglist!(p, TK_RBRACKET)
             p.depth -= 1
             expr = _node(expr, args, start)
         elseif at(p, TK_AT)
@@ -249,9 +248,10 @@ function parse_call!(p::Parser)::MExpr
     expr
 end
 
-function parse_arglist!(p::Parser)::Vector{MExpr}
+function parse_arglist!(p::Parser, closing::TokenKind)::Vector{MExpr}
     args = MExpr[]
-    if at(p, TK_RBRACKET) || at(p, TK_RBRACE)
+    if at(p, closing)
+        advance!(p)
         return args
     end
     push!(args, parse_compound!(p))
@@ -259,6 +259,7 @@ function parse_arglist!(p::Parser)::Vector{MExpr}
         advance!(p)
         push!(args, parse_compound!(p))
     end
+    expect!(p, closing)
     args
 end
 
@@ -325,15 +326,7 @@ function parse_atom!(p::Parser)::MExpr
     if t.kind == TK_LBRACE
         advance!(p)
         p.depth += 1
-        args = MExpr[]
-        if !at(p, TK_RBRACE)
-            push!(args, parse_compound!(p))
-            while at(p, TK_COMMA)
-                advance!(p)
-                push!(args, parse_compound!(p))
-            end
-        end
-        expect!(p, TK_RBRACE)
+        args = parse_arglist!(p, TK_RBRACE)
         p.depth -= 1
         return _node("List", args, start)
     end
