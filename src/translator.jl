@@ -136,7 +136,7 @@ function _translate(e::MExpr, parent_prec::Int)::String
     end
 
     if e isa MReal
-        return _wrap(string(e.value), e, parent_prec)
+        return _wrap(e.literal, e, parent_prec)
     end
 
     if e isa MString

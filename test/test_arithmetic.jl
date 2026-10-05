@@ -76,3 +76,14 @@ end
         @test Core.eval(Module(), Meta.parse(code)) == 4
     end
 end
+
+@testset "real literal spelling" begin
+    for (source, output) in (("1.", "1.0"), (".5", "0.5"), ("1.234567890123456789*^3", "1.234567890123456789e3"), ("1*^-999", "1e-999"))
+        @test translate_string(source) == output
+        @test Core.eval(Module(), Meta.parse(output)) == parse_string(source)[1].value
+    end
+    @test parse_string("1.00")[1] == MReal(1.0)
+    for source in ("1*^", "1*^+", "1.*^999")
+        @test_throws LexError translate_string(source)
+    end
+end

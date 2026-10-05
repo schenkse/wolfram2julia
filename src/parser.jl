@@ -238,7 +238,7 @@ function parse_atom!(p::Parser)::MExpr
 
     if t.kind == TK_REAL
         advance!(p)
-        return MReal(parse(Float64, t.lexeme))
+        return MReal(Meta.parse(t.lexeme), t.lexeme)
     end
 
     if t.kind == TK_STRING

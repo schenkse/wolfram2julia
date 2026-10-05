@@ -6,7 +6,11 @@ end
 
 struct MReal <: MExpr
     value::Float64
+    literal::String
 end
+
+MReal(value::Real) = MReal(Float64(value), string(Float64(value)))
+Base.:(==)(a::MReal, b::MReal) = a.value == b.value
 
 struct MSymbol <: MExpr
     name::String

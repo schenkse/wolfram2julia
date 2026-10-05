@@ -122,7 +122,7 @@ function next_token!(lx::Lexer)::Token
     end
 
     # Numbers
-    if isdigit(c)
+    if isdigit(c) || (c == '.' && isdigit(_peek(lx)))
         return _read_number!(lx, line, col)
     end
 
@@ -233,7 +233,7 @@ function _read_number!(lx::Lexer, line::Int, col::Int)::Token
         write(buf, _advance!(lx))
     end
 
-    if _cur(lx) == '.' && isdigit(_peek(lx))
+    if _cur(lx) == '.'
         is_real = true
         write(buf, _advance!(lx))  # '.'
         while isdigit(_cur(lx))
@@ -241,25 +241,28 @@ function _read_number!(lx::Lexer, line::Int, col::Int)::Token
         end
     end
 
-    # Mathematica scientific notation: 1.5*^3  →  1500.0
+    # Preserve mantissa digits, normalizing only the exponent marker.
     if _cur(lx) == '*' && _peek(lx) == '^'
         is_real = true
         _advance!(lx)  # '*'
         _advance!(lx)  # '^'
-        exp_buf = IOBuffer()
+        write(buf, 'e')
         if _cur(lx) == '-' || _cur(lx) == '+'
-            write(exp_buf, _advance!(lx))
+            write(buf, _advance!(lx))
         end
+        isdigit(_cur(lx)) || throw(LexError("Expected scientific exponent digits", line, col))
         while isdigit(_cur(lx))
-            write(exp_buf, _advance!(lx))
+            write(buf, _advance!(lx))
         end
-        base_str = String(take!(buf))
-        exp_str  = String(take!(exp_buf))
-        val = parse(Float64, base_str) * 10.0^parse(Int, exp_str)
-        return Token(TK_REAL, string(val), line, col)
     end
 
     s = String(take!(buf))
+    if is_real
+        startswith(s, ".") && (s = "0" * s)
+        s = replace(s, r"\.(?=e|$)" => ".0")
+        value = Meta.parse(s; raise=false)
+        value isa Float64 && isfinite(value) || throw(LexError("Floating-point literal out of range", line, col))
+    end
     is_real ? Token(TK_REAL, s, line, col) : Token(TK_INTEGER, s, line, col)
 end
 
