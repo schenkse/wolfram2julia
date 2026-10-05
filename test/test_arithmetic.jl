@@ -30,9 +30,9 @@
 
     # Additional math functions
     @test translate_string("Mod[10, 3]")     == "mod(10, 3)"
-    @test translate_string("Max[a, b]")      == "max(a, b)"
-    @test translate_string("Max[a, b, c]")   == "max(a, b, c)"
-    @test translate_string("Min[a, b]")      == "min(a, b)"
+    @test endswith(translate_string("Max[a, b]"), "_w2j_extrema(max, -Inf, a, b)")
+    @test endswith(translate_string("Max[a, b, c]"), "_w2j_extrema(max, -Inf, a, b, c)")
+    @test endswith(translate_string("Min[a, b]"), "_w2j_extrema(min, Inf, a, b)")
     @test translate_string("GCD[12, 8]")     == "gcd(12, 8)"
     @test translate_string("LCM[4, 6]")      == "lcm(4, 6)"
     @test translate_string("Conjugate[z]")   == "conj(z)"
@@ -95,4 +95,20 @@ end
         @test Core.eval(Module(), Meta.parse(translate_string(literal))) == parse(BigInt, literal)
     end
     @test MInteger(big(42)) == MInteger(42)
+end
+
+@testset "scalar and list extrema" begin
+    @test Core.eval(Module(), Meta.parse(translate_string("Max[]^2"))) == Inf
+    @test translate_string("Max[{1,{2,3}},4]") == "max(1, 2, 3, 4)"
+    for (source, expected) in (("Max[]", -Inf), ("Min[{{}}]", Inf), ("Max[{1,{},2}]", 2), ("x = {1,{5,{3}}, {}}; Max[x, 4]", 5), ("x = {}; Min[x]", Inf), ("x = {{3},2}; Min[x,1]", 1))
+        result = Core.eval(Module(), Meta.parse("begin\n" * translate_string(source) * "\nend"))
+        @test result === expected
+    end
+    code = translate_string("Max[x];Min[y]")
+    @test count("function _w2j_extrema", code) == 1
+    node = parse_string("Max[x]")[1]
+    m = Module()
+    Core.eval(m, :(x = [1,[2,3]]))
+    @test Core.eval(m, Meta.parse(translate(node))) === 3
+    @test Core.eval(Module(), Meta.parse(translate_string("Max[{1}]/2"))) == 0.5
 end

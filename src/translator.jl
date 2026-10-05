@@ -59,8 +59,6 @@ const MATH_FUNC1_MAP = Dict(
 # N-ary math function mapping: Wolfram head → Julia function name (1+ args, all passed through)
 const MATH_FUNC_NARY_MAP = Dict(
     "Mod"  => "mod",
-    "Max"  => "max",
-    "Min"  => "min",
     "GCD"  => "gcd",
     "LCM"  => "lcm",
     "Mean" => "Statistics.mean",
@@ -115,6 +113,19 @@ function _translate_arg(e::MExpr, ctx::TranslationContext)::String
     _is_sequence(e, ctx) ? value * "..." : value
 end
 
+# One helper serves both extrema and ignores empty nested lists without
+# promoting nonempty integer results to floating point.
+const EXTREMA_HELPER = """
+function _w2j_extrema(op, empty_value, xs...)
+    result = nothing
+    for x in xs
+        value = x isa AbstractArray || x isa Tuple ? _w2j_extrema(op, nothing, x...) : x
+        value === nothing && continue
+        result = result === nothing ? value : op(result, value)
+    end
+    result === nothing ? empty_value : result
+end"""
+
 # ─── Public entry points ────────────────────────────────────────────────────
 
 """
@@ -122,7 +133,11 @@ end
 
 Translate a single Mathematica AST node to a Julia code string.
 """
-translate(e::MExpr) = _translate(e, PREC_LOW, TranslationContext())
+function translate(e::MExpr)::String
+    ctx = TranslationContext()
+    result = _translate(e, PREC_LOW, ctx)
+    "extrema" in ctx.requirements ? "begin\n" * EXTREMA_HELPER * "\n" * result * "\nend" : result
+end
 
 """
     translate_string(source::String) -> String
@@ -133,7 +148,8 @@ Multiple statements (separated by `;`) are joined with newlines.
 function translate_string(source::String)::String
     ctx = TranslationContext()
     stmts = parse_string(source)
-    join((_translate_program(s, ctx) for s in stmts), "\n")
+    result = join((_translate_program(s, ctx) for s in stmts), "\n")
+    "extrema" in ctx.requirements ? EXTREMA_HELPER * "\n" * result : result
 end
 
 """
@@ -201,6 +217,19 @@ function _translate(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
     end
 
     # ── Math functions ───────────────────────────────────────────────────────
+
+    if n in ("Max", "Min")
+        args = MExpr[]
+        _flatten_extrema!(args, e.args)
+        jname, empty_value = n == "Max" ? ("max", "-Inf") : ("min", "Inf")
+        isempty(args) && return n == "Max" && parent_prec > PREC_UNARY ? "(-Inf)" : empty_value
+        if all(_known_scalar, args)
+            length(args) == 1 && return _translate(args[1], parent_prec, ctx)
+            return "$jname($(join((_translate_arg(a, ctx) for a in args), ", ")))"
+        end
+        push!(ctx.requirements, "extrema")
+        return "_w2j_extrema($jname, $empty_value, $(join((_translate_arg(a, ctx) for a in args), ", ")))"
+    end
 
     if n == "Sqrt"
         length(e.args) == 1 || throw(TranslationError("Sqrt requires 1 arg"))
@@ -509,4 +538,21 @@ function _slot_index(e::MExprNode)
     length(e.args) == 1 && e.args[1] isa MInteger && e.args[1].value > 0 ||
         throw(TranslationError("Slots require a positive integer index; #0 is unsupported"))
     e.args[1].value
+end
+
+function _flatten_extrema!(result::Vector{MExpr}, args::Vector{MExpr})
+    for arg in args
+        if is_head(arg, "List")
+            _flatten_extrema!(result, arg.args)
+        else
+            push!(result, arg)
+        end
+    end
+end
+
+function _known_scalar(e::MExpr)::Bool
+    e isa Union{MInteger,MReal} && return true
+    e isa MSymbol && return e.name in ("Pi", "E", "Infinity")
+    e isa MExprNode || return false
+    head_name(e) in ("Plus", "Times", "Power") && all(_known_scalar, e.args)
 end
