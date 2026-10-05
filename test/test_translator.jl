@@ -120,3 +120,11 @@
     end
 
 end
+
+@testset "embedded expressions" begin
+    @test translate_string("(# + 1 &)[2]") == "((_s1) -> _s1 + 1)(2)"
+    @test Core.eval(Module(), Meta.parse(translate_string("(# + 1 &)[2]"))) == 3
+    @test translate_string("(x -> 1) + y") == "(x => 1) + y"
+    @test translate_string("(x = 1) + 2") == "(x = 1) + 2"
+    @test Core.eval(Module(), Meta.parse(translate_string("(x = 1) + 2"))) == 3
+end

@@ -212,19 +212,19 @@ function _translate(e::MExpr, parent_prec::Int)::String
     if n == "SetDelayed"
         length(e.args) == 2 || throw(TranslationError("SetDelayed requires 2 args"))
         lhs, rhs = e.args
-        return _translate_setdelayed(lhs, rhs)
+        return _wrap(_translate_setdelayed(lhs, rhs), e, parent_prec)
     end
 
     if n == "Set"
         length(e.args) == 2 || throw(TranslationError("Set requires 2 args"))
         lhs, rhs = e.args
-        return "$(_translate(lhs, PREC_LOW)) = $(_translate(rhs, PREC_LOW))"
+        return _wrap("$(_translate(lhs, PREC_LOW + 1)) = $(_translate(rhs, PREC_LOW + 1))", e, parent_prec)
     end
 
     # ── Functions ────────────────────────────────────────────────────────────
 
     if n == "Function"
-        return _translate_function(e.args)
+        return _wrap(_translate_function(e.args), e, parent_prec)
     end
 
     if n == "Pattern"
@@ -262,13 +262,13 @@ function _translate(e::MExpr, parent_prec::Int)::String
 
     if n == "Rule"
         length(e.args) == 2 || throw(TranslationError("Rule requires 2 args"))
-        return "$(_translate(e.args[1], PREC_LOW)) => $(_translate(e.args[2], PREC_LOW))"
+        return _wrap("$(_translate(e.args[1], PREC_LOW + 1)) => $(_translate(e.args[2], PREC_LOW + 1))", e, parent_prec)
     end
 
     if n == "RuleDelayed"
         length(e.args) == 2 || throw(TranslationError("RuleDelayed requires 2 args"))
         # :> delays evaluation of the RHS; represent as a thunk to preserve the distinction
-        return "$(_translate(e.args[1], PREC_LOW)) => (() -> $(_translate(e.args[2], PREC_LOW)))"
+        return _wrap("$(_translate(e.args[1], PREC_LOW + 1)) => (() -> $(_translate(e.args[2], PREC_LOW)))", e, parent_prec)
     end
 
     # ── Explicitly unsupported constructs ────────────────────────────────────
@@ -279,7 +279,7 @@ function _translate(e::MExpr, parent_prec::Int)::String
 
     # ── Generic function call fallback ───────────────────────────────────────
 
-    head_str = _translate(e.head, PREC_LOW)
+    head_str = _translate(e.head, PREC_CALL)
     arg_strs = [_translate(a, PREC_LOW) for a in e.args]
     return "$(head_str)($(join(arg_strs, ", ")))"
 end
