@@ -303,7 +303,7 @@ function _read_symbol_blank!(lx::Lexer, sym_name::String, line::Int, col::Int)::
 
     # Optional head after blank: x_Integer (no whitespace allowed)
     head_name = ""
-    if kind == TK_BLANK && (isletter(_cur(lx)) || _cur(lx) == '$')
+    if isletter(_cur(lx)) || _cur(lx) == '$'
         head_buf = IOBuffer()
         while lx.pos <= ncodeunits(lx.source) && (isletter(_cur(lx)) || isdigit(_cur(lx)) || _cur(lx) == '$')
             write(head_buf, _advance!(lx))
@@ -317,15 +317,7 @@ function _read_symbol_blank!(lx::Lexer, sym_name::String, line::Int, col::Int)::
 end
 
 function _read_blank!(lx::Lexer, line::Int, col::Int)::Token
-    count = 0
-    while _cur(lx) == '_'
-        _advance!(lx)
-        count += 1
-        count == 3 && break
-    end
-    kind = count == 1 ? TK_BLANK :
-           count == 2 ? TK_BLANKSEQ : TK_BLANKSEQSEQ
-    Token(kind, "_"^count, line, col)
+    _read_symbol_blank!(lx, "", line, col)
 end
 
 function tokenize(source::String)::Vector{Token}

@@ -177,3 +177,17 @@ end
     @test parse_string("f[a;, b]")[1].args[1].args[end] == MSymbol("Null")
     @test length(parse_string("a;;")[1].args) == 3
 end
+
+@testset "typed blanks" begin
+    for (prefix, head) in (("_", "Blank"), ("__", "BlankSequence"), ("___", "BlankNullSequence"))
+        for name in ("", "α")
+            source = name * prefix * "Integer"
+            token = tokenize(source)[1]
+            @test token.lexeme == source
+            node = parse_string(source)[1]
+            blank = isempty(name) ? node : node.args[2]
+            @test is_head(blank, head)
+            @test blank.args == MExpr[MSymbol("Integer")]
+        end
+    end
+end
