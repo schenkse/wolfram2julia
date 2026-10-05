@@ -19,13 +19,13 @@ Lexer(source::String) = Lexer(source, 1, 1, 1)
 
 # Peek current character without advancing
 function _cur(lx::Lexer)
-    lx.pos > length(lx.source) ? '\0' : lx.source[lx.pos]
+    lx.pos > ncodeunits(lx.source) ? '\0' : lx.source[lx.pos]
 end
 
 # Peek one ahead
 function _peek(lx::Lexer, offset::Int = 1)
     p = lx.pos + offset
-    p > length(lx.source) ? '\0' : lx.source[p]
+    p > ncodeunits(lx.source) ? '\0' : lx.source[p]
 end
 
 # Advance one character
@@ -43,7 +43,7 @@ end
 
 # Skip whitespace (but NOT between a symbol and a blank — callers handle that)
 function _skip_whitespace!(lx::Lexer)
-    while lx.pos <= length(lx.source) && isspace(_cur(lx))
+    while lx.pos <= ncodeunits(lx.source) && isspace(_cur(lx))
         _advance!(lx)
     end
 end
@@ -54,7 +54,7 @@ function _skip_comment!(lx::Lexer)
     _advance!(lx)  # consume '('
     _advance!(lx)  # consume '*'
     depth = 1
-    while lx.pos <= length(lx.source) && depth > 0
+    while lx.pos <= ncodeunits(lx.source) && depth > 0
         c = _cur(lx)
         n = _peek(lx)
         if c == '(' && n == '*'
@@ -77,14 +77,14 @@ function next_token!(lx::Lexer)::Token
     # Skip whitespace and comments
     while true
         _skip_whitespace!(lx)
-        if lx.pos <= length(lx.source) && _cur(lx) == '(' && _peek(lx) == '*'
+        if lx.pos <= ncodeunits(lx.source) && _cur(lx) == '(' && _peek(lx) == '*'
             _skip_comment!(lx)
         else
             break
         end
     end
 
-    if lx.pos > length(lx.source)
+    if lx.pos > ncodeunits(lx.source)
         return Token(TK_EOF, "", lx.line, lx.col)
     end
 
@@ -95,7 +95,7 @@ function next_token!(lx::Lexer)::Token
     if c == '"'
         _advance!(lx)
         buf = IOBuffer()
-        while lx.pos <= length(lx.source)
+        while lx.pos <= ncodeunits(lx.source)
             ch = _cur(lx)
             if ch == '"'
                 _advance!(lx)
@@ -259,7 +259,7 @@ end
 
 function _read_symbol!(lx::Lexer, line::Int, col::Int)::Token
     buf = IOBuffer()
-    while lx.pos <= length(lx.source) && (isletter(_cur(lx)) || isdigit(_cur(lx)) || _cur(lx) == '$')
+    while lx.pos <= ncodeunits(lx.source) && (isletter(_cur(lx)) || isdigit(_cur(lx)) || _cur(lx) == '$')
         write(buf, _advance!(lx))
     end
     name = String(take!(buf))
@@ -289,7 +289,7 @@ function _read_symbol_blank!(lx::Lexer, sym_name::String, line::Int, col::Int)::
     head_name = ""
     if kind == TK_BLANK && (isletter(_cur(lx)) || _cur(lx) == '$')
         head_buf = IOBuffer()
-        while lx.pos <= length(lx.source) && (isletter(_cur(lx)) || isdigit(_cur(lx)) || _cur(lx) == '$')
+        while lx.pos <= ncodeunits(lx.source) && (isletter(_cur(lx)) || isdigit(_cur(lx)) || _cur(lx) == '$')
             write(head_buf, _advance!(lx))
         end
         head_name = String(take!(head_buf))

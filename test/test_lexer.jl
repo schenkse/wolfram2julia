@@ -127,3 +127,8 @@
     end
 
 end
+
+@testset "lexer byte bounds" begin
+    @test tokenize("")[end].kind == TK_EOF
+    @test length(tokenize(repeat("x + 1; ", 1000))) == 4001
+end
