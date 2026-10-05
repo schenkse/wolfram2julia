@@ -155,3 +155,15 @@ end
     @test translate_string("f[x]@g[y]") == "f(x)(g(y))"
     @test Core.eval(Module(), Meta.parse(translate_string("Sin@Cos[0]"))) == sin(cos(0))
 end
+
+@testset "multiplication and input boundaries" begin
+    @test translate_string("2 x (a + b)") == "2 * x * (a + b)"
+    @test length(parse_string("x\ny")) == 2
+    @test translate_string("x +\n y") == "x + y"
+    @test translate_string("f[x_] :=\n x^2") == "f(x) = x^2"
+    @test translate_string("f[\nx\n y\n]") == "f(x * y)"
+    @test translate_string("x \\\n y") == "x * y"
+    @test translate_string("(2\n 3)") == "2 * 3"
+    @test_throws ParseError parse_string("f[x}")
+    @test_throws ParseError parse_string("x @@ y")
+end

@@ -23,7 +23,7 @@ export TK_PLUS, TK_MINUS, TK_TIMES, TK_DIVIDE, TK_POWER, TK_BANG
 export TK_AT, TK_ATAT, TK_SLASHDOT
 export TK_BLANK, TK_BLANKSEQ, TK_BLANKSEQSEQ
 export TK_SLOT, TK_SLOTSEQ, TK_AMPERSAND
-export TK_EOF
+export TK_NEWLINE, TK_EOF
 
 # Parser
 export parse_string, ParseError

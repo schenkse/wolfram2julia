@@ -11,11 +11,15 @@ end
 mutable struct Parser
     tokens::Vector{Token}
     pos::Int
+    depth::Int
 end
 
-Parser(tokens::Vector{Token}) = Parser(tokens, 1)
+Parser(tokens::Vector{Token}) = Parser(tokens, 1, 0)
 
 function peek(p::Parser)::Token
+    while p.depth > 0 && p.tokens[p.pos].kind == TK_NEWLINE
+        p.pos += 1
+    end
     p.tokens[min(p.pos, length(p.tokens))]
 end
 
@@ -45,16 +49,23 @@ end
 
 function parse_program!(p::Parser)::Vector{MExpr}
     stmts = MExpr[]
+    skip_newlines!(p)
     while !at(p, TK_EOF)
         push!(stmts, parse_compound!(p))
-        # Consume trailing semicolons between top-level statements
-        while at(p, TK_SEMICOLON)
-            advance!(p)
-            # If more content follows, continue loop; otherwise break
-        end
+        at_any(p, TK_NEWLINE, TK_EOF) || throw(ParseError("Expected end of expression", peek(p).line, peek(p).col))
+        skip_newlines!(p)
     end
     stmts
 end
+
+function skip_newlines!(p::Parser)
+    while at(p, TK_NEWLINE)
+        advance!(p)
+    end
+end
+
+const OPERAND_STARTS = (TK_INTEGER, TK_REAL, TK_SYMBOL, TK_STRING, TK_LPAREN,
+                       TK_LBRACE, TK_BLANK, TK_BLANKSEQ, TK_BLANKSEQSEQ, TK_SLOT, TK_SLOTSEQ)
 
 # CompoundExpression: a; b; c
 function parse_compound!(p::Parser)::MExpr
@@ -141,10 +152,10 @@ function parse_mul!(p::Parser)::MExpr
     left = parse_unary!(p)
     args = MExpr[left]
 
-    while at_any(p, TK_TIMES, TK_DIVIDE)
-        op = advance!(p)
+    while at_any(p, TK_TIMES, TK_DIVIDE) || peek(p).kind in OPERAND_STARTS
+        op = at_any(p, TK_TIMES, TK_DIVIDE) ? advance!(p) : nothing
         right = parse_unary!(p)
-        if op.kind == TK_DIVIDE
+        if op !== nothing && op.kind == TK_DIVIDE
             # a / b  →  Times[a, Power[b, -1]]
             push!(args, MExprNode("Power", MExpr[right, MInteger(-1)]))
         else
@@ -157,9 +168,14 @@ end
 
 # Unary minus
 function parse_unary!(p::Parser)::MExpr
+    skip_newlines!(p)
+    if at(p, TK_PLUS)
+        advance!(p)
+        return parse_unary!(p)
+    end
     if at(p, TK_MINUS)
         advance!(p)
-        operand = parse_power!(p)
+        operand = parse_unary!(p)
         return MExprNode("Times", MExpr[MInteger(-1), operand])
     end
     parse_power!(p)
@@ -199,8 +215,10 @@ function parse_call!(p::Parser)::MExpr
     while true
         if at(p, TK_LBRACKET)
             advance!(p)
+            p.depth += 1
             args = parse_arglist!(p)
             expect!(p, TK_RBRACKET)
+            p.depth -= 1
             expr = MExprNode(expr, args)
         elseif at(p, TK_AT)
             advance!(p)
@@ -229,6 +247,7 @@ end
 
 # Atom: number, symbol (with optional pattern), string, grouped expr, list, slot
 function parse_atom!(p::Parser)::MExpr
+    skip_newlines!(p)
     t = peek(p)
 
     if t.kind == TK_INTEGER
@@ -276,14 +295,17 @@ function parse_atom!(p::Parser)::MExpr
     # Parenthesized expression
     if t.kind == TK_LPAREN
         advance!(p)
+        p.depth += 1
         expr = parse_set!(p)
         expect!(p, TK_RPAREN)
+        p.depth -= 1
         return expr
     end
 
     # List: {a, b, c}
     if t.kind == TK_LBRACE
         advance!(p)
+        p.depth += 1
         args = MExpr[]
         if !at(p, TK_RBRACE)
             push!(args, parse_set!(p))
@@ -293,6 +315,7 @@ function parse_atom!(p::Parser)::MExpr
             end
         end
         expect!(p, TK_RBRACE)
+        p.depth -= 1
         return MExprNode("List", args)
     end
 

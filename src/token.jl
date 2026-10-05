@@ -40,6 +40,7 @@
     TK_SLOTSEQ     # ##
     TK_AMPERSAND   # &
 
+    TK_NEWLINE
     TK_EOF
 end
 

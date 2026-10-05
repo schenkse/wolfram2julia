@@ -43,7 +43,7 @@ end
 
 # Skip whitespace (but NOT between a symbol and a blank — callers handle that)
 function _skip_whitespace!(lx::Lexer)
-    while lx.pos <= ncodeunits(lx.source) && isspace(_cur(lx))
+    while lx.pos <= ncodeunits(lx.source) && isspace(_cur(lx)) && _cur(lx) != '\n'
         _advance!(lx)
     end
 end
@@ -79,6 +79,12 @@ function next_token!(lx::Lexer)::Token
     # Skip whitespace and comments
     while true
         _skip_whitespace!(lx)
+        if _cur(lx) == '\\' && (_peek(lx) == '\n' || (_peek(lx) == '\r' && _peek(lx, 2) == '\n'))
+            _advance!(lx)
+            _cur(lx) == '\r' && _advance!(lx)
+            _advance!(lx)
+            continue
+        end
         if lx.pos <= ncodeunits(lx.source) && _cur(lx) == '(' && _peek(lx) == '*'
             _skip_comment!(lx)
         else
@@ -162,6 +168,7 @@ function next_token!(lx::Lexer)::Token
     # Operators and delimiters
     _advance!(lx)  # consume c
 
+    if c == '\n' return Token(TK_NEWLINE, "\n", line, col) end
     if c == '['  return Token(TK_LBRACKET,  "[",  line, col) end
     if c == ']'  return Token(TK_RBRACKET,  "]",  line, col) end
     if c == '('  return Token(TK_LPAREN,    "(",  line, col) end
