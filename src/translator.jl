@@ -72,8 +72,8 @@ const UNSUPPORTED_HEADS = ("If", "Which", "Switch", "Do", "While", "For",
 
 # Pattern type annotation mapping: Mathematica head → Julia type
 const PATTERN_TYPE_MAP = Dict(
-    "Integer" => "Int",
-    "Real"    => "Float64",
+    "Integer" => "Integer",
+    "Real"    => "AbstractFloat",
     "String"  => "String",
     "Symbol"  => "Symbol",
     "Complex" => "Complex",
@@ -215,16 +215,10 @@ function _translate(e::MExpr, parent_prec::Int)::String
 
     # ── Definitions ─────────────────────────────────────────────────────────
 
-    if n == "SetDelayed"
-        length(e.args) == 2 || throw(TranslationError("SetDelayed requires 2 args"))
+    if n in ("SetDelayed", "Set")
+        length(e.args) == 2 || throw(TranslationError("$n requires 2 args"))
         lhs, rhs = e.args
         return _wrap(_translate_setdelayed(lhs, rhs), e, parent_prec)
-    end
-
-    if n == "Set"
-        length(e.args) == 2 || throw(TranslationError("Set requires 2 args"))
-        lhs, rhs = e.args
-        return _wrap("$(_translate(lhs, PREC_LOW + 1)) = $(_translate(rhs, PREC_LOW + 1))", e, parent_prec)
     end
 
     # ── Functions ────────────────────────────────────────────────────────────
@@ -378,29 +372,32 @@ end
 
 function _translate_setdelayed(lhs::MExpr, rhs::MExpr)::String
     if lhs isa MExprNode && lhs.head isa MSymbol
-        fname = lhs.head.name
-        var_strs = [_strip_pattern(a) for a in lhs.args]
+        fname = _translate(lhs.head, PREC_CALL)
+        var_strs = [_strip_pattern(a, i) for (i, a) in enumerate(lhs.args)]
         return "$(fname)($(join(var_strs, ", "))) = $(_translate(rhs, PREC_LOW))"
     end
     # Fallback: treat as simple assignment
     "$(_translate(lhs, PREC_LOW)) = $(_translate(rhs, PREC_LOW))"
 end
 
-function _strip_pattern(e::MExpr)::String
+# Validate each parameter before emitting a Julia signature.
+function _strip_pattern(e::MExpr, index::Int)::String
     if is_head(e, "Pattern")
-        var_str = _translate(e.args[1], PREC_LOW)
-        if length(e.args) >= 2
-            blank = e.args[2]
-            if is_head(blank, "Blank") && !isempty(blank.args) && blank.args[1] isa MSymbol
-                julia_type = get(PATTERN_TYPE_MAP, blank.args[1].name, nothing)
-                if julia_type !== nothing
-                    return "$(var_str)::$(julia_type)"
-                end
-            end
-        end
-        return var_str
+        length(e.args) == 2 && e.args[1] isa MSymbol || throw(TranslationError("Invalid named pattern"))
+        var_str = e.args[1].name
+        blank = e.args[2]
+    else
+        var_str = "_p$index"
+        blank = e
     end
-    _translate(e, PREC_LOW)
+    is_head(blank, "Blank") || throw(TranslationError("Function parameters require blank patterns"))
+    length(blank.args) <= 1 || throw(TranslationError("Invalid blank constraint"))
+    isempty(blank.args) && return var_str
+    constraint = blank.args[1]
+    constraint isa MSymbol || throw(TranslationError("Pattern constraint must be a symbol"))
+    julia_type = get(PATTERN_TYPE_MAP, constraint.name, nothing)
+    julia_type === nothing && throw(TranslationError("Unsupported pattern constraint: $(constraint.name)"))
+    "$(var_str)::$(julia_type)"
 end
 
 function _translate_function(args::Vector{MExpr})::String

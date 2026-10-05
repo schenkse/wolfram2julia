@@ -7,13 +7,13 @@
     @test translate_string("square[n_] := n^2")       == "square(n) = n^2"
 
     # Typed patterns → Julia type annotations
-    @test translate_string("f[x_Integer] := x + 1")  == "f(x::Int) = x + 1"
-    @test translate_string("f[x_Real] := x + 1.0")   == "f(x::Float64) = x + 1.0"
+    @test translate_string("f[x_Integer] := x + 1")  == "f(x::Integer) = x + 1"
+    @test translate_string("f[x_Real] := x + 1.0")   == "f(x::AbstractFloat) = x + 1.0"
     @test translate_string("f[x_String] := x")       == "f(x::String) = x"
     @test translate_string("f[x_Symbol] := x")       == "f(x::Symbol) = x"
     @test translate_string("f[x_Complex] := x")      == "f(x::Complex) = x"
-    # Unknown type head → annotation dropped (no mapping)
-    @test translate_string("f[x_MyType] := x")       == "f(x) = x"
+    # Unknown constraints fail explicitly.
+    @test_throws TranslationError translate_string("f[x_MyType] := x")
 
     # Function calls
     @test translate_string("f[x]")                   == "f(x)"
@@ -50,4 +50,18 @@ end
         @test Core.eval(Module(), Meta.parse("begin\n" * code * "\nend")) == expected
     end
     @test translate_string("1;Null;2;") == "1\nnothing\n2\nnothing"
+end
+
+@testset "consistent function constraints" begin
+    for op in ("=", ":=")
+        @test translate_string("f[x_Integer] $op x") == "f(x::Integer) = x"
+        @test translate_string("f[_Real] $op 1") == "f(_p1::AbstractFloat) = 1"
+        @test_throws TranslationError translate_string("f[x_Unknown] $op x")
+        @test_throws TranslationError translate_string("f[1] $op 2")
+        m = Module()
+        Core.eval(m, Meta.parse(translate_string("f[x_Integer] $op x")))
+        @test Base.invokelatest(Core.eval(m, :f), big(2)) == big(2)
+        Core.eval(m, Meta.parse(translate_string("g[x_Real] $op x")))
+        @test Base.invokelatest(Core.eval(m, :g), Float32(2)) isa Float32
+    end
 end
