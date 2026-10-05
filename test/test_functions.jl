@@ -21,13 +21,13 @@
     @test translate_string("g[f[x]]")                == "g(f(x))"
 
     # Pure functions
-    @test translate_string("Function[{x}, x^2]")     == "(x) -> x^2"
-    @test translate_string("Function[{x, y}, x + y]") == "(x, y) -> x + y"
-    @test translate_string("Function[x, x^2]")       == "x -> x^2"
+    @test translate_string("Function[{x}, x^2]")     == "(x, _w2j_extra...) -> x^2"
+    @test translate_string("Function[{x, y}, x + y]") == "(x, y, _w2j_extra...) -> x + y"
+    @test translate_string("Function[x, x^2]")       == "(x, _w2j_extra...) -> x^2"
 
     # Short-form pure function
-    @test translate_string("#^2 &")                  == "(_s1) -> _s1^2"
-    @test translate_string("# + 1 &")               == "(_s1) -> _s1 + 1"
+    @test translate_string("#^2 &")                  == "(_w2j_args...) -> _w2j_args[1]^2"
+    @test translate_string("# + 1 &")               == "(_w2j_args...) -> _w2j_args[1] + 1"
 
     # CompoundExpression
     @test translate_string("a; b; c")                == "a\nb\nc"
@@ -87,5 +87,14 @@ end
 @testset "slot sequences" begin
     for (source, expected) in (("(## &)[1,2,3]", (1,2,3)), ("(##2 &)[1,2,3]", (2,3)), ("({##2} &)[1,2,3]", [2,3]), ("(Plus[##] &)[1,2,3]", 6), ("({#,##2} &)[1,2,3]", [1,2,3]), ("(## & )[]", ()))
         @test Core.eval(Module(), Meta.parse(translate_string(source))) == expected
+    end
+end
+
+@testset "pure function scopes" begin
+    for (source, expected) in (("(# &)[1,2,3]", 1), ("(42 & )[]", 42), ("Function[{x}, x][1,2]", 1), ("(# + (#2 &)[0,3] &)[2]", 5), ("(#[2] &)[# + 1 &]", 3), ("({##, (##2 &)[0,8,9]} &)[1,2]", Any[1,2,(8,9)]))
+        @test Core.eval(Module(), Meta.parse(translate_string(source))) == expected
+    end
+    for source in ("#", "##", "#0 &", "##0 &", "Slot[x] &", "Function[{x}, #]")
+        @test_throws TranslationError translate_string(source)
     end
 end

@@ -88,8 +88,8 @@
     end
 
     @testset "Slot" begin
-        @test translate(MExprNode("Slot", MExpr[MInteger(1)])) == "_s1"
-        @test translate(MExprNode("Slot", MExpr[MInteger(2)])) == "_s2"
+        @test_throws TranslationError translate(MExprNode("Slot", MExpr[MInteger(1)]))
+        @test_throws TranslationError translate(MExprNode("Slot", MExpr[MInteger(2)]))
     end
 
     @testset "Log arity validation" begin
@@ -122,7 +122,7 @@
 end
 
 @testset "embedded expressions" begin
-    @test translate_string("(# + 1 &)[2]") == "((_s1) -> _s1 + 1)(2)"
+    @test translate_string("(# + 1 &)[2]") == "((_w2j_args...) -> _w2j_args[1] + 1)(2)"
     @test Core.eval(Module(), Meta.parse(translate_string("(# + 1 &)[2]"))) == 3
     @test translate_string("(x -> 1) + y") == "(x => 1) + y"
     @test translate_string("(x = 1) + 2") == "(x = 1) + 2"

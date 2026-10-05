@@ -255,15 +255,10 @@ function _translate(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
         return _translate(e.args[1], parent_prec, ctx)
     end
 
-    if n == "Slot"
-        n_slot = isempty(e.args) ? 1 : (e.args[1] isa MInteger ? e.args[1].value : 1)
-        return ctx.slots === nothing ? "_s$(n_slot)" : "$(ctx.slots)[$n_slot]"
-    end
-
-    if n == "SlotSequence"
-        ctx.slots === nothing && throw(TranslationError("SlotSequence requires a pure function"))
-        index = isempty(e.args) ? 1 : e.args[1].value
-        return "$(ctx.slots)[$index:end]"
+    if n in ("Slot", "SlotSequence")
+        ctx.slots === nothing && throw(TranslationError("$n outside a slot-style pure function"))
+        index = _slot_index(e)
+        return n == "Slot" ? "$(ctx.slots)[$index]" : "$(ctx.slots)[$index:end]"
     end
 
     # ── Collections ──────────────────────────────────────────────────────────
@@ -466,35 +461,26 @@ end
 
 function _translate_function(args::Vector{MExpr}, ctx::TranslationContext)::String
     if length(args) == 1
-        # Short form: Function[body] from #expr &
         body = args[1]
-        if _has_slot_sequence(body)
-            tuple_name = "_w2j_args"
-            while _contains_symbol(body, tuple_name)
-                tuple_name *= "_"
-            end
-            bodyctx = TranslationContext(ctx.sequences, tuple_name, ctx.requirements)
-            return "($tuple_name...) -> $(_translate(body, PREC_LOW, bodyctx))"
+        tuple_name = "_w2j_args"
+        while _contains_symbol(body, tuple_name)
+            tuple_name *= "_"
         end
-        # Find max slot index
-        max_slot = _max_slot(body)
-        max_slot == 0 && (max_slot = 1)
-        params = join(["_s$i" for i in 1:max_slot], ", ")
-        body_str = _translate(body, PREC_LOW, ctx)
-        return "($params) -> $body_str"
+        bodyctx = TranslationContext(ctx.sequences, tuple_name, ctx.requirements)
+        return "($tuple_name...) -> $(_translate(body, PREC_LOW, bodyctx))"
     elseif length(args) == 2
         vars_node, body = args
         vars = is_head(vars_node, "List") ? vars_node.args : MExpr[vars_node]
         all(v -> v isa MSymbol, vars) || throw(TranslationError("Function parameters must be symbols"))
         sequences = setdiff(ctx.sequences, Set(v.name for v in vars))
-        ctx = TranslationContext(sequences, ctx.slots, ctx.requirements)
-        if is_head(vars_node, "List")
-            params = join([_translate(v, PREC_LOW, ctx) for v in vars_node.args], ", ")
-            return "($params) -> $(_translate(body, PREC_LOW, ctx))"
-        else
-            # Single variable not wrapped in List
-            return "$(_translate(vars_node, PREC_LOW, ctx)) -> $(_translate(body, PREC_LOW, ctx))"
+        ctx = TranslationContext(sequences, nothing, ctx.requirements)
+        extra_name = "_w2j_extra"
+        while _contains_symbol(body, extra_name) || any(v -> v.name == extra_name, vars)
+            extra_name *= "_"
         end
+        params = join((v.name for v in vars), ", ")
+        isempty(params) || (params *= ", ")
+        return "($params$extra_name...) -> $(_translate(body, PREC_LOW, ctx))"
     end
     throw(TranslationError("Function requires 1 or 2 args, got $(length(args))"))
 end
@@ -507,12 +493,20 @@ function _max_slot(e::MExpr)::Int
         return 1
     end
     e isa MExprNode || return 0
-    isempty(e.args) && return 0
-    maximum(_max_slot(a) for a in e.args)
+    is_head(e, "Function") && return 0
+    max(_max_slot(e.head), maximum((_max_slot(a) for a in e.args); init=0))
 end
 
 function _has_slot_sequence(e::MExpr)::Bool
     is_head(e, "SlotSequence") && return true
     e isa MExprNode || return false
+    is_head(e, "Function") && return false
     _has_slot_sequence(e.head) || any(_has_slot_sequence, e.args)
+end
+
+function _slot_index(e::MExprNode)
+    isempty(e.args) && return 1
+    length(e.args) == 1 && e.args[1] isa MInteger && e.args[1].value > 0 ||
+        throw(TranslationError("Slots require a positive integer index; #0 is unsupported"))
+    e.args[1].value
 end
