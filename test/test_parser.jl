@@ -167,3 +167,13 @@ end
     @test_throws ParseError parse_string("f[x}")
     @test_throws ParseError parse_string("x @@ y")
 end
+
+@testset "nested compound parsing" begin
+    @test is_head(parse_string("(a;b)")[1], "CompoundExpression")
+    @test is_head(parse_string("f[a;b]")[1].args[1], "CompoundExpression")
+    @test is_head(parse_string("{a;b, c}")[1].args[1], "CompoundExpression")
+    @test parse_string("a;")[1].args[end] == MSymbol("Null")
+    @test parse_string("(a;)")[1].args[end] == MSymbol("Null")
+    @test parse_string("f[a;, b]")[1].args[1].args[end] == MSymbol("Null")
+    @test length(parse_string("a;;")[1].args) == 3
+end

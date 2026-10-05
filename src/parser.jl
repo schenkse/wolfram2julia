@@ -78,16 +78,11 @@ function parse_compound!(p::Parser)::MExpr
     while at(p, TK_SEMICOLON)
         advance!(p)  # consume ';'
         # If next is EOF, another ';', or end of context → add Null
-        if at(p, TK_EOF) || at(p, TK_SEMICOLON)
+        if at_any(p, TK_EOF, TK_NEWLINE, TK_SEMICOLON, TK_RPAREN, TK_RBRACKET, TK_RBRACE, TK_COMMA)
             push!(args, MSymbol("Null"))
         else
             push!(args, parse_set!(p))
         end
-    end
-
-    # Drop trailing Null
-    while !isempty(args) && args[end] == MSymbol("Null")
-        pop!(args)
     end
 
     length(args) == 1 ? args[1] : MExprNode("CompoundExpression", args)
@@ -237,10 +232,10 @@ function parse_arglist!(p::Parser)::Vector{MExpr}
     if at(p, TK_RBRACKET) || at(p, TK_RBRACE)
         return args
     end
-    push!(args, parse_set!(p))
+    push!(args, parse_compound!(p))
     while at(p, TK_COMMA)
         advance!(p)
-        push!(args, parse_set!(p))
+        push!(args, parse_compound!(p))
     end
     args
 end
@@ -296,7 +291,7 @@ function parse_atom!(p::Parser)::MExpr
     if t.kind == TK_LPAREN
         advance!(p)
         p.depth += 1
-        expr = parse_set!(p)
+        expr = parse_compound!(p)
         expect!(p, TK_RPAREN)
         p.depth -= 1
         return expr
@@ -308,10 +303,10 @@ function parse_atom!(p::Parser)::MExpr
         p.depth += 1
         args = MExpr[]
         if !at(p, TK_RBRACE)
-            push!(args, parse_set!(p))
+            push!(args, parse_compound!(p))
             while at(p, TK_COMMA)
                 advance!(p)
-                push!(args, parse_set!(p))
+                push!(args, parse_compound!(p))
             end
         end
         expect!(p, TK_RBRACE)
