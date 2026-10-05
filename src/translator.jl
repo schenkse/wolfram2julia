@@ -60,7 +60,6 @@ const MATH_FUNC_NARY_MAP = Dict(
     "Mod"  => "mod",
     "GCD"  => "gcd",
     "LCM"  => "lcm",
-    "Mean" => "Statistics.mean",
 )
 
 # Heads that are explicitly unsupported — throw rather than emit broken Julia
@@ -148,7 +147,9 @@ function translate_string(source::String)::String
     ctx = TranslationContext()
     stmts = parse_string(source)
     result = join((_translate_program(s, ctx) for s in stmts), "\n")
-    "extrema" in ctx.requirements ? EXTREMA_HELPER * "\n" * result : result
+    prefix = "Statistics" in ctx.requirements ? "import Statistics\n" : ""
+    "extrema" in ctx.requirements && (prefix *= EXTREMA_HELPER * "\n")
+    prefix * result
 end
 
 """
@@ -246,6 +247,12 @@ function _translate(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
         isempty(e.args) && throw(TranslationError("$n requires at least 1 arg"))
         args_str = join([_translate_arg(a, ctx) for a in e.args], ", ")
         return "$(jname)($(args_str))"
+    end
+
+    if n == "Mean"
+        length(e.args) == 1 || throw(TranslationError("Mean requires 1 arg"))
+        push!(ctx.requirements, "Statistics")
+        return "Statistics.mean($(_translate_arg(e.args[1], ctx)))"
     end
 
     if n == "ArcTan"

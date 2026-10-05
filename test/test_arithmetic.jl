@@ -39,7 +39,7 @@
     @test translate_string("Log2[x]")        == "log2(x)"
     @test translate_string("Log10[x]")       == "log10(x)"
     @test translate_string("Total[{1,2,3}]") == "sum([1, 2, 3])"
-    @test translate_string("Mean[{1,2,3}]")  == "Statistics.mean([1, 2, 3])"
+    @test translate_string("Mean[{1,2,3}]")  == "import Statistics\nStatistics.mean([1, 2, 3])"
 
     # Symbol remapping
     @test translate_string("Sin[Pi]")            == "sin(pi)"
@@ -121,4 +121,14 @@ end
     end
     @test_throws TranslationError translate_string("ArcTan[]")
     @test_throws TranslationError translate_string("ArcTan[1,2,3]")
+end
+
+@testset "generated Statistics import" begin
+    code = translate_string("Mean[{1,2}]; Mean[{3,4}]")
+    @test count("import Statistics", code) == 1
+    @test Core.eval(Module(), Meta.parse("begin\n" * code * "\nend")) == 3.5
+    @test translate(parse_string("Mean[{1,2}]")[1]) == "Statistics.mean([1, 2])"
+    @test !occursin("import Statistics", translate_string("Total[{1,2}]"))
+    @test_throws TranslationError translate_string("Mean[]")
+    @test_throws TranslationError translate_string("Mean[1,2]")
 end
