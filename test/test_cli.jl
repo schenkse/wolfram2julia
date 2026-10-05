@@ -23,3 +23,28 @@ end
         end
     end
 end
+
+@testset "CLI arguments" begin
+    for args in (["--unknown"], ["a", "b"], ["--help", "--unknown"])
+        result = run_cli(args)
+        @test result.status == 1
+        @test isempty(result.out)
+        @test occursin("Error:", result.err)
+    end
+    for args in (["--version", "--help"], ["--help", "--version"])
+        result = run_cli(args)
+        @test result.status == 0
+        @test startswith(result.out, "Usage:")
+        @test isempty(result.err)
+    end
+    @test run_cli(["-v"]).out == "wolfram2julia 0.1.0\n"
+    @test run_cli(["-"]; input="2 x").out == "2 * x\n"
+    mktempdir() do dir
+        cd(dir) do
+            write("--help", "1+2")
+            result = run_cli(["--", "--help"])
+            @test result.status == 0
+            @test result.out == "1 + 2\n"
+        end
+    end
+end
