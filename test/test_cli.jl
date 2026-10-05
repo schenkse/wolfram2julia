@@ -7,6 +7,9 @@ function run_cli(args=String[]; input="", launcher=nothing)
     else
         `$(Base.julia_cmd()) --startup-file=no --compiled-modules=no $launcher $args`
     end
+    # Pkg.test restricts its load path; subprocesses model a normal CLI launch.
+    separator = Sys.iswindows() ? ";" : ":"
+    cmd = addenv(cmd, "JULIA_LOAD_PATH" => "@$(separator)@stdlib")
     out, err = IOBuffer(), IOBuffer()
     process = run(pipeline(ignorestatus(cmd), stdin=IOBuffer(input), stdout=out, stderr=err))
     (status=process.exitcode, out=String(take!(out)), err=String(take!(err)))
