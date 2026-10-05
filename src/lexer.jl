@@ -51,6 +51,7 @@ end
 # Skip nested Mathematica comments (* ... *)
 function _skip_comment!(lx::Lexer)
     # Assumes we just saw '(' and '*'
+    line, col = lx.line, lx.col
     _advance!(lx)  # consume '('
     _advance!(lx)  # consume '*'
     depth = 1
@@ -67,6 +68,7 @@ function _skip_comment!(lx::Lexer)
             _advance!(lx)
         end
     end
+    depth == 0 || throw(LexError("Unterminated comment", line, col))
 end
 
 function _make_token(lx::Lexer, kind::TokenKind, lexeme::String, line::Int, col::Int)

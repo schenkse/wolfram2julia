@@ -153,3 +153,11 @@ end
     end
     @test tokenize("\"\"")[1].lexeme == ""
 end
+
+@testset "unterminated comments" begin
+    for source in ("\n  (* abc", "\n  (* outer (* inner *)")
+        err = try tokenize(source); catch e; e; end
+        @test err isa LexError
+        @test (err.line, err.col) == (2, 3)
+    end
+end
