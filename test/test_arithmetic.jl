@@ -112,3 +112,13 @@ end
     @test Core.eval(m, Meta.parse(translate(node))) === 3
     @test Core.eval(Module(), Meta.parse(translate_string("Max[{1}]/2"))) == 0.5
 end
+
+@testset "ArcTan forms" begin
+    @test translate_string("ArcTan[x,y]") == "atan(y, x)"
+    @test translate_string("ArcTan[x]") == "atan(x)"
+    for (x,y) in ((1,2), (-1,2), (-1,-2), (1,-2))
+        @test Core.eval(Module(), Meta.parse(translate_string("ArcTan[$x,$y]"))) == atan(y,x)
+    end
+    @test_throws TranslationError translate_string("ArcTan[]")
+    @test_throws TranslationError translate_string("ArcTan[1,2,3]")
+end

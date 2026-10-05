@@ -41,7 +41,6 @@ const MATH_FUNC1_MAP = Dict(
     "Tan"     => "tan",
     "ArcSin"  => "asin",
     "ArcCos"  => "acos",
-    "ArcTan"  => "atan",
     "Exp"     => "exp",
     "Abs"     => "abs",
     "Sign"    => "sign",
@@ -247,6 +246,12 @@ function _translate(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
         isempty(e.args) && throw(TranslationError("$n requires at least 1 arg"))
         args_str = join([_translate_arg(a, ctx) for a in e.args], ", ")
         return "$(jname)($(args_str))"
+    end
+
+    if n == "ArcTan"
+        length(e.args) in (1, 2) || throw(TranslationError("ArcTan requires 1 or 2 args"))
+        args = length(e.args) == 1 ? e.args : reverse(e.args)
+        return "atan($(join((_translate_arg(a, ctx) for a in args), ", ")))"
     end
 
     if n == "Log"
