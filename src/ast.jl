@@ -25,11 +25,16 @@ end
 struct MExprNode <: MExpr
     head::MExpr
     args::Vector{MExpr}
+    line::Int
+    col::Int
 end
 
+MExprNode(head::MExpr, args::Vector{MExpr}) = MExprNode(head, args, 0, 0)
+Base.:(==)(a::MExprNode, b::MExprNode) = a.head == b.head && a.args == b.args
+
 # Convenience constructor: MExprNode("Plus", a, b)
-MExprNode(head::String, args::MExpr...) = MExprNode(MSymbol(head), collect(MExpr, args))
-MExprNode(head::String, args::Vector{MExpr}) = MExprNode(MSymbol(head), args)
+MExprNode(head::String, args::MExpr...; line::Int=0, col::Int=0) = MExprNode(MSymbol(head), collect(MExpr, args), line, col)
+MExprNode(head::String, args::Vector{MExpr}; line::Int=0, col::Int=0) = MExprNode(MSymbol(head), args, line, col)
 
 # Helpers
 function is_head(e::MExpr, name::String)

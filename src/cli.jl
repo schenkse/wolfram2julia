@@ -40,6 +40,7 @@ function _cli_arguments(args::Vector{String})
 end
 
 function main(args::Vector{String} = ARGS)::Int
+    filename, source = "<stdin>", ""
     try
         parsed = _cli_arguments(args)
         if parsed.help
@@ -50,6 +51,7 @@ function main(args::Vector{String} = ARGS)::Int
             return 0
         end
         positional = parsed.positional
+        filename = isempty(positional) || positional == ["-"] ? "<stdin>" : only(positional)
         source = if isempty(positional) || positional == ["-"]
             if isempty(positional) && isa(stdin, Base.TTY)
                 print(stderr, USAGE)
@@ -66,7 +68,7 @@ function main(args::Vector{String} = ARGS)::Int
         return 0
     catch e
         if e isa Union{LexError,ParseError,TranslationError}
-            println(stderr, sprint(showerror, e))
+            _print_diagnostic(stderr, e, filename, source)
         elseif e isa ArgumentError
             println(stderr, "Error: $(e.msg)")
         elseif e isa Union{SystemError,Base.IOError}
@@ -75,5 +77,25 @@ function main(args::Vector{String} = ARGS)::Int
             rethrow(e)
         end
         return 1
+    end
+end
+
+function _print_diagnostic(io::IO, error, filename::String, source::String)
+    label = string(nameof(typeof(error)))
+    if error.line == 0
+        println(io, "$filename: $label: $(error.message)")
+        return
+    end
+    println(io, "$filename:$(error.line):$(error.col): $label: $(error.message)")
+    lines = split(source, '\n'; keepempty=true)
+    if 1 <= error.line <= length(lines)
+        line = lines[error.line]
+        println(io, line)
+        # Keep tabs in the prefix so the caret follows the displayed source.
+        for (i, character) in enumerate(line)
+            i >= error.col && break
+            print(io, character == '\t' ? '\t' : ' ')
+        end
+        println(io, '^')
     end
 end

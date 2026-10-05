@@ -169,7 +169,19 @@ end
 
 # ─── Core translator ────────────────────────────────────────────────────────
 
+# Attach a location at the innermost failing construct.
 function _translate(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
+    try
+        _emit(e, parent_prec, ctx)
+    catch error
+        if error isa TranslationError && error.line == 0 && e isa MExprNode && e.line > 0
+            throw(TranslationError(error.message, e.line, e.col))
+        end
+        rethrow()
+    end
+end
+
+function _emit(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
     if e isa MInteger
         return _wrap(string(e.value), e, parent_prec)
     end
@@ -482,7 +494,7 @@ function _pattern_type(blank::MExpr)::String
     constraint = blank.args[1]
     constraint isa MSymbol || throw(TranslationError("Pattern constraint must be a symbol"))
     julia_type = get(PATTERN_TYPE_MAP, constraint.name, nothing)
-    julia_type === nothing && throw(TranslationError("Unsupported pattern constraint: $(constraint.name)"))
+    julia_type === nothing && throw(TranslationError("Unsupported pattern constraint: $(constraint.name)", blank.line, blank.col))
     "::$julia_type"
 end
 

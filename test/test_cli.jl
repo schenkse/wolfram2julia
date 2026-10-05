@@ -45,6 +45,8 @@ end
             result = run_cli(["--", "--help"])
             @test result.status == 0
             @test result.out == "1 + 2\n"
+            write("<stdin>", "3+4")
+            @test run_cli(["<stdin>"]).out == "3 + 4\n"
         end
     end
 end
@@ -65,5 +67,23 @@ end
             @test occursin("Error:", result.err)
             @test !occursin("Stacktrace", result.err)
         end
+    end
+end
+
+@testset "CLI source diagnostics" begin
+    result = run_cli(; input="α = 1\n  Sin[If[x,1,2]]")
+    @test result.status == 1
+    @test isempty(result.out)
+    @test occursin("<stdin>:2:7: TranslationError", result.err)
+    @test occursin("  Sin[If[x,1,2]]\n      ^", result.err)
+    result = run_cli(["-"]; input="α ?")
+    @test occursin("<stdin>:1:3: LexError", result.err)
+    @test occursin("α ?\n  ^", result.err)
+    mktempdir() do dir
+        path = joinpath(dir, "input.wl")
+        write(path, "\n  f[")
+        result = run_cli([path])
+        @test occursin("$path:2:5: ParseError", result.err)
+        @test occursin("  f[\n    ^", result.err)
     end
 end

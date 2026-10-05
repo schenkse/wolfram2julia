@@ -128,3 +128,11 @@ end
     @test translate_string("(x = 1) + 2") == "(x = 1) + 2"
     @test Core.eval(Module(), Meta.parse(translate_string("(x = 1) + 2"))) == 3
 end
+
+@testset "located translation failures" begin
+    for (source, location) in (("\n  Sin[If[x,1,2]]", (2,7)), ("\n  #0 &", (2,3)), ("f[x_Unknown] := x", (1,3)), ("\n Mean[]", (2,2)))
+        error = try translate_string(source); catch e; e; end
+        @test error isa TranslationError
+        @test (error.line, error.col) == location
+    end
+end

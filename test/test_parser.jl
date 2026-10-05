@@ -191,3 +191,12 @@ end
         end
     end
 end
+
+@testset "AST source locations" begin
+    node = parse_string("\n  Sin[If[x,1,2]]")[1]
+    @test (node.line, node.col) == (2, 3)
+    @test (node.args[1].line, node.args[1].col) == (2, 7)
+    @test node == MExprNode("Sin", MExprNode("If", MSymbol("x"), MInteger(1), MInteger(2)))
+    @test MExprNode("f", MInteger(1)).line == 0
+    @test parse_string("f[x_Integer] := x")[1].args[1].args[1].col == 3
+end

@@ -45,6 +45,10 @@ function expect!(p::Parser, kind::TokenKind)::Token
     advance!(p)
 end
 
+# Every parsed compound carries the start of its source construct.
+_node(head, args::Vector{MExpr}, token::Token) =
+    MExprNode(head isa String ? MSymbol(head) : head, args, token.line, token.col)
+
 # ─── Top-level ──────────────────────────────────────────────────────────────
 
 function parse_program!(p::Parser)::Vector{MExpr}
@@ -69,6 +73,8 @@ const OPERAND_STARTS = (TK_INTEGER, TK_REAL, TK_SYMBOL, TK_STRING, TK_LPAREN,
 
 # CompoundExpression: a; b; c
 function parse_compound!(p::Parser)::MExpr
+    skip_newlines!(p)
+    start = peek(p)
     first = parse_set!(p)
     if !at(p, TK_SEMICOLON)
         return first
@@ -85,29 +91,31 @@ function parse_compound!(p::Parser)::MExpr
         end
     end
 
-    length(args) == 1 ? args[1] : MExprNode("CompoundExpression", args)
+    length(args) == 1 ? args[1] : _node("CompoundExpression", args, start)
 end
 
 # Set / SetDelayed: right-associative
 function parse_set!(p::Parser)::MExpr
+    skip_newlines!(p)
+    start = peek(p)
     lhs = parse_function_body!(p)
 
     if at(p, TK_SETDELAYED)
         advance!(p)
         rhs = parse_set!(p)
-        return MExprNode("SetDelayed", MExpr[lhs, rhs])
+        return _node("SetDelayed", MExpr[lhs, rhs], start)
     elseif at(p, TK_SET)
         advance!(p)
         rhs = parse_set!(p)
-        return MExprNode("Set", MExpr[lhs, rhs])
+        return _node("Set", MExpr[lhs, rhs], start)
     elseif at(p, TK_RULE)
         advance!(p)
         rhs = parse_set!(p)
-        return MExprNode("Rule", MExpr[lhs, rhs])
+        return _node("Rule", MExpr[lhs, rhs], start)
     elseif at(p, TK_RULEDELAYED)
         advance!(p)
         rhs = parse_set!(p)
-        return MExprNode("RuleDelayed", MExpr[lhs, rhs])
+        return _node("RuleDelayed", MExpr[lhs, rhs], start)
     end
 
     lhs
@@ -115,16 +123,20 @@ end
 
 # Function short-form: expr & wraps the whole lhs as Function body
 function parse_function_body!(p::Parser)::MExpr
+    skip_newlines!(p)
+    start = peek(p)
     expr = parse_add!(p)
     if at(p, TK_AMPERSAND)
         advance!(p)
-        return MExprNode("Function", MExpr[expr])
+        return _node("Function", MExpr[expr], start)
     end
     expr
 end
 
 # Plus / Minus — n-ary accumulation
 function parse_add!(p::Parser)::MExpr
+    skip_newlines!(p)
+    start = peek(p)
     left = parse_mul!(p)
     args = MExpr[left]
 
@@ -133,17 +145,19 @@ function parse_add!(p::Parser)::MExpr
         right = parse_mul!(p)
         if op.kind == TK_MINUS
             # a - b  →  Plus[a, Times[-1, b]]
-            push!(args, MExprNode("Times", MExpr[MInteger(-1), right]))
+            push!(args, _node("Times", MExpr[MInteger(-1), right], start))
         else
             push!(args, right)
         end
     end
 
-    length(args) == 1 ? args[1] : MExprNode("Plus", args)
+    length(args) == 1 ? args[1] : _node("Plus", args, start)
 end
 
 # Times / Divide — n-ary accumulation
 function parse_mul!(p::Parser)::MExpr
+    skip_newlines!(p)
+    start = peek(p)
     left = parse_unary!(p)
     args = MExpr[left]
 
@@ -152,17 +166,19 @@ function parse_mul!(p::Parser)::MExpr
         right = parse_unary!(p)
         if op !== nothing && op.kind == TK_DIVIDE
             # a / b  →  Times[a, Power[b, -1]]
-            push!(args, MExprNode("Power", MExpr[right, MInteger(-1)]))
+            push!(args, _node("Power", MExpr[right, MInteger(-1)], start))
         else
             push!(args, right)
         end
     end
 
-    length(args) == 1 ? args[1] : MExprNode("Times", args)
+    length(args) == 1 ? args[1] : _node("Times", args, start)
 end
 
 # Unary minus
 function parse_unary!(p::Parser)::MExpr
+    skip_newlines!(p)
+    start = peek(p)
     skip_newlines!(p)
     if at(p, TK_PLUS)
         advance!(p)
@@ -171,30 +187,34 @@ function parse_unary!(p::Parser)::MExpr
     if at(p, TK_MINUS)
         advance!(p)
         operand = parse_unary!(p)
-        return MExprNode("Times", MExpr[MInteger(-1), operand])
+        return _node("Times", MExpr[MInteger(-1), operand], start)
     end
     parse_power!(p)
 end
 
 # Power — right-associative
 function parse_power!(p::Parser)::MExpr
+    skip_newlines!(p)
+    start = peek(p)
     base = parse_postfix!(p)
     if at(p, TK_POWER)
         advance!(p)
         exp = parse_unary!(p)   # recurse for right-assoc
-        return MExprNode("Power", MExpr[base, exp])
+        return _node("Power", MExpr[base, exp], start)
     end
     base
 end
 
 # Postfix: Factorial, pattern blanks (already encoded in token lexeme)
 function parse_postfix!(p::Parser)::MExpr
+    skip_newlines!(p)
+    start = peek(p)
     expr = parse_call!(p)
 
     while true
         if at(p, TK_BANG)
             advance!(p)
-            expr = MExprNode("Factorial", MExpr[expr])
+            expr = _node("Factorial", MExpr[expr], start)
         else
             break
         end
@@ -205,6 +225,8 @@ end
 
 # Function application: f[args] and f@x
 function parse_call!(p::Parser)::MExpr
+    skip_newlines!(p)
+    start = peek(p)
     expr = parse_atom!(p)
 
     while true
@@ -214,11 +236,11 @@ function parse_call!(p::Parser)::MExpr
             args = parse_arglist!(p)
             expect!(p, TK_RBRACKET)
             p.depth -= 1
-            expr = MExprNode(expr, args)
+            expr = _node(expr, args, start)
         elseif at(p, TK_AT)
             advance!(p)
             arg = parse_call!(p)
-            expr = MExprNode(expr, MExpr[arg])
+            expr = _node(expr, MExpr[arg], start)
         else
             break
         end
@@ -242,6 +264,8 @@ end
 
 # Atom: number, symbol (with optional pattern), string, grouped expr, list, slot
 function parse_atom!(p::Parser)::MExpr
+    skip_newlines!(p)
+    start = peek(p)
     skip_newlines!(p)
     t = peek(p)
 
@@ -277,14 +301,14 @@ function parse_atom!(p::Parser)::MExpr
     # Slot: # or #2
     if t.kind == TK_SLOT
         advance!(p)
-        n = length(t.lexeme) > 1 ? parse(Int, t.lexeme[2:end]) : 1
-        return MExprNode("Slot", MExpr[MInteger(n)])
+        n = length(t.lexeme) > 1 ? parse(BigInt, t.lexeme[2:end]) : 1
+        return _node("Slot", MExpr[MInteger(n)], start)
     end
 
     if t.kind == TK_SLOTSEQ
         advance!(p)
-        n = length(t.lexeme) > 2 ? parse(Int, t.lexeme[3:end]) : 1
-        return MExprNode("SlotSequence", MExpr[MInteger(n)])
+        n = length(t.lexeme) > 2 ? parse(BigInt, t.lexeme[3:end]) : 1
+        return _node("SlotSequence", MExpr[MInteger(n)], start)
     end
 
     # Parenthesized expression
@@ -311,7 +335,7 @@ function parse_atom!(p::Parser)::MExpr
         end
         expect!(p, TK_RBRACE)
         p.depth -= 1
-        return MExprNode("List", args)
+        return _node("List", args, start)
     end
 
     throw(ParseError("Unexpected token $(t.kind) (\"$(t.lexeme)\")", t.line, t.col))
@@ -319,6 +343,7 @@ end
 
 # Decode a blank token whose lexeme encodes "sym_" or "sym__" or "sym_Head"
 function _parse_blank_token(t::Token)::MExpr
+    start = t
     lexeme = t.lexeme
 
     # Count leading underscores from the right part
@@ -347,14 +372,14 @@ function _parse_blank_token(t::Token)::MExpr
                  ucount == 2 ? "BlankSequence" : "BlankNullSequence"
 
     blank_node = isempty(head_part) ?
-        MExprNode(blank_kind, MExpr[]) :
-        MExprNode(blank_kind, MExpr[MSymbol(head_part)])
+        _node(blank_kind, MExpr[], start) :
+        _node(blank_kind, MExpr[MSymbol(head_part)], start)
 
     if isempty(sym_part)
         # Standalone blank with no symbol: _, __, ___
         return blank_node
     else
-        return MExprNode("Pattern", MExpr[MSymbol(sym_part), blank_node])
+        return _node("Pattern", MExpr[MSymbol(sym_part), blank_node], start)
     end
 end
 
