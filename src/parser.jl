@@ -138,6 +138,7 @@ function parse_add!(p::Parser)::MExpr
     skip_newlines!(p)
     start = peek(p)
     left = parse_mul!(p)
+    at_any(p, TK_PLUS, TK_MINUS) || return left
     args = MExpr[left]
 
     while at_any(p, TK_PLUS, TK_MINUS)
@@ -151,7 +152,7 @@ function parse_add!(p::Parser)::MExpr
         end
     end
 
-    length(args) == 1 ? args[1] : _node("Plus", args, start)
+    _node("Plus", args, start)
 end
 
 # Times / Divide — n-ary accumulation
@@ -159,6 +160,7 @@ function parse_mul!(p::Parser)::MExpr
     skip_newlines!(p)
     start = peek(p)
     left = parse_unary!(p)
+    at_any(p, TK_TIMES, TK_DIVIDE) || peek(p).kind in OPERAND_STARTS || return left
     args = MExpr[left]
 
     while at_any(p, TK_TIMES, TK_DIVIDE) || peek(p).kind in OPERAND_STARTS
@@ -172,14 +174,13 @@ function parse_mul!(p::Parser)::MExpr
         end
     end
 
-    length(args) == 1 ? args[1] : _node("Times", args, start)
+    _node("Times", args, start)
 end
 
 # Unary minus
 function parse_unary!(p::Parser)::MExpr
     skip_newlines!(p)
     start = peek(p)
-    skip_newlines!(p)
     if at(p, TK_PLUS)
         advance!(p)
         return parse_unary!(p)
@@ -267,8 +268,7 @@ end
 function parse_atom!(p::Parser)::MExpr
     skip_newlines!(p)
     start = peek(p)
-    skip_newlines!(p)
-    t = peek(p)
+    t = start
 
     if t.kind == TK_INTEGER
         advance!(p)
