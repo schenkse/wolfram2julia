@@ -68,18 +68,18 @@
     @testset "CompoundExpression" begin
         e = MExprNode("CompoundExpression",
                 MExpr[MSymbol("a"), MSymbol("b"), MSymbol("c")])
-        @test translate(e) == "a\nb\nc"
+        @test translate(e) == "begin\na\nb\nc\nend"
     end
 
-    @testset "CompoundExpression drops Null" begin
+    @testset "CompoundExpression retains Null" begin
         e = MExprNode("CompoundExpression",
                 MExpr[MSymbol("a"), MSymbol("Null")])
-        @test translate(e) == "a"
+        @test translate(e) == "begin\na\nnothing\nend"
     end
 
     @testset "CompoundExpression trailing semicolon" begin
-        # a; b; parses as CompoundExpression[a, b, Null]; Null is dropped
-        @test translate_string("a; b;") == "a\nb"
+        # A trailing semicolon preserves the final Null result.
+        @test translate_string("a; b;") == "a\nb\nnothing"
     end
 
     @testset "Rule" begin

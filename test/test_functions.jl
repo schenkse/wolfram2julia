@@ -43,3 +43,11 @@
     @test translate_string("x -> 5")                 == "x => 5"
 
 end
+
+@testset "compound scope and results" begin
+    for (source, expected) in (("f[x_] := (y = x+1; y^2); f[2]", 9), ("f[x_] := (x^2;); f[2]", nothing), ("((#; #+1) &)[2]", 3), ("(1; #+1 &)[2]", 3), ("{(1;2), (3;)}", [2,nothing]), ("Abs[(1; -2)]", 2))
+        code = translate_string(source)
+        @test Core.eval(Module(), Meta.parse("begin\n" * code * "\nend")) == expected
+    end
+    @test translate_string("1;Null;2;") == "1\nnothing\n2\nnothing"
+end

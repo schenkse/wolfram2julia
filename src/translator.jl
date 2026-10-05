@@ -116,7 +116,7 @@ Multiple statements (separated by `;`) are joined with newlines.
 """
 function translate_string(source::String)::String
     stmts = parse_string(source)
-    join((_translate(s, PREC_LOW) for s in stmts), "\n")
+    join((_translate_program(s) for s in stmts), "\n")
 end
 
 """
@@ -126,6 +126,12 @@ Read a file and translate its contents.
 """
 function translate_file(path::String)::String
     translate_string(read(path, String))
+end
+
+# Compound statements at program level do not need an expression block.
+function _translate_program(e::MExpr)::String
+    is_head(e, "CompoundExpression") && return join((_translate_program(a) for a in e.args), "\n")
+    _translate(e, PREC_LOW)
 end
 
 # ─── Core translator ────────────────────────────────────────────────────────
@@ -252,12 +258,7 @@ function _translate(e::MExpr, parent_prec::Int)::String
     # ── Control expressions ──────────────────────────────────────────────────
 
     if n == "CompoundExpression"
-        parts = MExpr[]
-        for a in e.args
-            a == MSymbol("Null") && continue
-            push!(parts, a)
-        end
-        return join([_translate(a, PREC_LOW) for a in parts], "\n")
+        return _wrap("begin\n" * join((_translate(a, PREC_LOW) for a in e.args), "\n") * "\nend", e, parent_prec)
     end
 
     if n == "Rule"
