@@ -1,32 +1,24 @@
 # wolfram2julia
 
-A command-line tool and Julia library that translates Wolfram Mathematica expressions to Julia code.
+A source translator for a numerical subset of Wolfram Mathematica. Keep the compiler pipeline: source text → tokens → AST → Julia string.
 
-## Architecture
+## Pipeline
 
-This project is a compiler pipeline: **source text → tokens → AST → Julia string**. Each stage is a separate file.
+- `src/lexer.jl` uses byte offsets and valid Julia string indices. Columns count characters. It preserves real literal digits, normalizes scientific notation, emits newline tokens, and reports unterminated strings/comments at their opening location.
+- `src/parser.jl` lowers infix syntax to FullForm. Delimiter depth distinguishes top-level newline boundaries from multiline bracketed input. One delimiter-aware argument parser handles calls and lists. Compounds retain every `Null`.
+- `src/ast.jl` defines five `MExpr` subtypes. `MInteger.value` is `Union{Int64,BigInt}`. `MReal` retains a numeric `.value` and normalized `.literal` spelling. `MExprNode` carries optional `.line`/`.col`, defaulting to zero for manual constructors. Equality ignores locations and compares numeric values. Use `is_head` and `head_name` for matching.
+- `src/translator.jl` emits strings with precedence-aware grouping. Program compounds become statements; compounds used as values become `begin … end` expressions. A translation context tracks sequence bindings, the current slot tuple, and generated requirements. Keep that context local to each translation and respect function scope.
+- `src/cli.jl` validates options and separates output from diagnostics. Expected lexer/parser/translation/file failures return status 1 without stack traces. Source diagnostics include filename, line, column, source, and caret. The launcher resolves its own symlink before activating the project.
 
-### Pipeline stages
+## Translation conventions
 
-1. **Lexer** ([src/lexer.jl](src/lexer.jl)) — Converts Wolfram source to a flat `Token` stream. Handles Mathematica-specific syntax: `1.5*^3` scientific notation, pattern bindings (`x_`, `x_Integer`, `__`, `___`), anonymous function slots (`#`, `#1`, `##`), and nested comments `(* ... *)`.
+- Both `=` and `:=` share function-pattern validation. Known constraints map to `Integer`, `AbstractFloat`, `String`, `Symbol`, and `Complex`; unknown constraints fail. Only the final parameter may be a sequence. `__` requires an argument; `___` permits none. Sequence bindings are tuples and splice into calls/lists.
+- Pure functions bind argument tuples for slots, accept unused extra arguments, and isolate nested slot scopes. Slots outside their function and `#0` fail.
+- `Max`/`Min` flatten literal lists. Dynamic nested lists use one generated recursive helper; empty inputs yield infinities and nonempty integer results remain integers.
+- Source translation emits `import Statistics` once for `Mean`, plus required helpers. Single-node `translate` omits imports and wraps required helper definitions in one `begin` expression.
+- Preserve ordinary Julia numeric behavior. Integer literals remain exact; real literal spelling preserves digits without arbitrary-precision arithmetic. Reject floating-point literal overflow with a source location.
+- Custom heads pass through as Julia calls. Keep unsupported control-flow and matrix operations explicit errors. Assignment evaluation and symbolic computation retain the limitations documented in README.md.
 
-2. **Parser** ([src/parser.jl](src/parser.jl)) — Recursive-descent parser that produces an AST. Infix expressions are lowered to FullForm during parsing (e.g., `a - b` → `Plus[a, Times[-1, b]]`). Throws `ParseError` with line/column on syntax errors.
+## Verification
 
-3. **AST** ([src/ast.jl](src/ast.jl)) — Five node types, all subtypes of abstract `MExpr`: `MInteger`, `MReal`, `MSymbol`, `MString`, `MExprNode`. Compound expressions use `MExprNode(head, args)` mirroring Mathematica's FullForm. Use `is_head(e, "Plus")` and `head_name(e)` for pattern matching.
-
-4. **Translator** ([src/translator.jl](src/translator.jl)) — Walks the AST and emits Julia strings. Key translation rules:
-   - `SetDelayed[f[x_], body]` → `f(x) = body` (function definitions)
-   - `Function[{x}, body]` and `body &` slot-style → Julia lambdas
-   - `Times[a, Power[b,-1]]` → `a / b` (division pattern)
-   - `{a, b}` → `[a, b]` (lists)
-   - `x -> 5` → `x => 5` (rules)
-   - Compound expressions (`;`) → newline-separated statements
-   - Throws `TranslationError` for unsupported constructs.
-
-5. **CLI** ([src/cli.jl](src/cli.jl)) — Entry point wrapping `translate_string`/`translate_file`, with `--help`/`--version` flags.
-
-### Design decisions
-
-- The parser normalizes both infix (e.g., `a + b`) and FullForm (e.g., `Plus[a, b]`) input into the same AST, so the translator only needs to handle FullForm.
-- Parenthesization in the translator is precedence-aware to avoid redundant parens.
-- Type annotations in patterns (`x_Integer`) are parsed but currently silently dropped—the variable name is used without a Julia type annotation.
+Use focused parser/output/execution tests for semantic changes and CLI subprocess tests for process behavior. Run `Pkg.test()` for final verification. Use `benchmarks/translation.jl` for warmed measurements; timing thresholds belong outside CI. Julia 1.10 is the minimum supported version.
