@@ -257,11 +257,13 @@ function _translate(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
 
     if n == "Slot"
         n_slot = isempty(e.args) ? 1 : (e.args[1] isa MInteger ? e.args[1].value : 1)
-        return "_s$(n_slot)"
+        return ctx.slots === nothing ? "_s$(n_slot)" : "$(ctx.slots)[$n_slot]"
     end
 
     if n == "SlotSequence"
-        return "args..."
+        ctx.slots === nothing && throw(TranslationError("SlotSequence requires a pure function"))
+        index = isempty(e.args) ? 1 : e.args[1].value
+        return "$(ctx.slots)[$index:end]"
     end
 
     # ── Collections ──────────────────────────────────────────────────────────
@@ -466,6 +468,14 @@ function _translate_function(args::Vector{MExpr}, ctx::TranslationContext)::Stri
     if length(args) == 1
         # Short form: Function[body] from #expr &
         body = args[1]
+        if _has_slot_sequence(body)
+            tuple_name = "_w2j_args"
+            while _contains_symbol(body, tuple_name)
+                tuple_name *= "_"
+            end
+            bodyctx = TranslationContext(ctx.sequences, tuple_name, ctx.requirements)
+            return "($tuple_name...) -> $(_translate(body, PREC_LOW, bodyctx))"
+        end
         # Find max slot index
         max_slot = _max_slot(body)
         max_slot == 0 && (max_slot = 1)
@@ -499,4 +509,10 @@ function _max_slot(e::MExpr)::Int
     e isa MExprNode || return 0
     isempty(e.args) && return 0
     maximum(_max_slot(a) for a in e.args)
+end
+
+function _has_slot_sequence(e::MExpr)::Bool
+    is_head(e, "SlotSequence") && return true
+    e isa MExprNode || return false
+    _has_slot_sequence(e.head) || any(_has_slot_sequence, e.args)
 end

@@ -83,3 +83,9 @@ end
     @test_throws TranslationError translate_string("f[x___, y___] := x")
     @test_throws TranslationError translate_string("f[x___Unknown] := x")
 end
+
+@testset "slot sequences" begin
+    for (source, expected) in (("(## &)[1,2,3]", (1,2,3)), ("(##2 &)[1,2,3]", (2,3)), ("({##2} &)[1,2,3]", [2,3]), ("(Plus[##] &)[1,2,3]", 6), ("({#,##2} &)[1,2,3]", [1,2,3]), ("(## & )[]", ()))
+        @test Core.eval(Module(), Meta.parse(translate_string(source))) == expected
+    end
+end
