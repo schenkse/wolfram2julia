@@ -210,7 +210,7 @@ function _emit(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
     end
 
     if n == "Plus"
-        parts = [_translate_plus_arg(a, ctx) for a in e.args]
+        parts = (_translate_plus_arg(a, ctx) for a in e.args)
         result = _join_plus(parts)
         return _wrap(result, e, parent_prec)
     end
@@ -257,7 +257,7 @@ function _emit(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
     if haskey(MATH_FUNC_NARY_MAP, n)
         jname = MATH_FUNC_NARY_MAP[n]
         isempty(e.args) && throw(TranslationError("$n requires at least 1 arg"))
-        args_str = join([_translate_arg(a, ctx) for a in e.args], ", ")
+        args_str = join((_translate_arg(a, ctx) for a in e.args), ", ")
         return "$(jname)($(args_str))"
     end
 
@@ -269,8 +269,10 @@ function _emit(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
 
     if n == "ArcTan"
         length(e.args) in (1, 2) || throw(TranslationError("ArcTan requires 1 or 2 args"))
-        args = length(e.args) == 1 ? e.args : reverse(e.args)
-        return "atan($(join((_translate_arg(a, ctx) for a in args), ", ")))"
+        if length(e.args) == 1
+            return "atan($(_translate_arg(e.args[1], ctx)))"
+        end
+        return "atan($(_translate_arg(e.args[2], ctx)), $(_translate_arg(e.args[1], ctx)))"
     end
 
     if n == "Log"
@@ -317,7 +319,7 @@ function _emit(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
     # ── Collections ──────────────────────────────────────────────────────────
 
     if n == "List"
-        parts = [_translate_arg(a, ctx) for a in e.args]
+        parts = (_translate_arg(a, ctx) for a in e.args)
         return "[$(join(parts, ", "))]"
     end
 
@@ -347,7 +349,7 @@ function _emit(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
     # ── Generic function call fallback ───────────────────────────────────────
 
     head_str = _translate(e.head, PREC_CALL, ctx)
-    arg_strs = [_translate_arg(a, ctx) for a in e.args]
+    arg_strs = (_translate_arg(a, ctx) for a in e.args)
     return "$(head_str)($(join(arg_strs, ", ")))"
 end
 
@@ -370,10 +372,7 @@ function _translate_plus_arg(a::MExpr, ctx::TranslationContext)::String
 end
 
 # Join Plus args, treating "- x" terms specially
-function _join_plus(parts::Vector{String})::String
-    if isempty(parts)
-        return "0"
-    end
+function _join_plus(parts)::String
     result = IOBuffer()
     for (i, part) in enumerate(parts)
         if i == 1
@@ -384,7 +383,7 @@ function _join_plus(parts::Vector{String})::String
             print(result, " + ", part)
         end
     end
-    String(take!(result))
+    position(result) == 0 ? "0" : String(take!(result))
 end
 
 # Translate Times, handling special cases for negation and division
@@ -420,14 +419,14 @@ function _translate_times(args::Vector{MExpr}, ctx::TranslationContext)::String
 
     if isempty(dens)
         # _translate(a, PREC_MUL, ctx) already inserts parens when needed via _wrap
-        parts = [_translate(a, PREC_MUL, ctx) for a in nums]
-        result = isempty(parts) ? "1" : join(parts, " * ")
+        parts = (_translate(a, PREC_MUL, ctx) for a in nums)
+        result = isempty(nums) ? "1" : join(parts, " * ")
         return neg_prefix * result
     else
         num_str = if isempty(nums)
             "1"
         else
-            join([_translate(a, PREC_MUL, ctx) for a in nums], " * ")
+            join((_translate(a, PREC_MUL, ctx) for a in nums), " * ")
         end
         den_str = if length(dens) == 1
             _translate(dens[1], PREC_MUL + 1, ctx)
