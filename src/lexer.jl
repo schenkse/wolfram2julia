@@ -71,10 +71,6 @@ function _skip_comment!(lx::Lexer)
     depth == 0 || throw(LexError("Unterminated comment", line, col))
 end
 
-function _make_token(lx::Lexer, kind::TokenKind, lexeme::String, line::Int, col::Int)
-    Token(kind, lexeme, line, col)
-end
-
 function next_token!(lx::Lexer)::Token
     # Skip whitespace and comments
     while true

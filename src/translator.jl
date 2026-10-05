@@ -211,12 +211,12 @@ function _emit(e::MExpr, parent_prec::Int, ctx::TranslationContext)::String
 
     if n == "Plus"
         parts = [_translate_plus_arg(a, ctx) for a in e.args]
-        result = _join_plus(parts, e.args)
+        result = _join_plus(parts)
         return _wrap(result, e, parent_prec)
     end
 
     if n == "Times"
-        return _wrap(_translate_times(e.args, parent_prec, ctx), e, parent_prec)
+        return _wrap(_translate_times(e.args, ctx), e, parent_prec)
     end
 
     if n == "Power"
@@ -357,10 +357,6 @@ function _is_neg_one(e::MExpr)::Bool
     (e isa MInteger && e.value == -1) || (e isa MReal && e.value == -1.0)
 end
 
-function _is_neg_integer(e::MExpr)::Bool
-    e isa MInteger && e.value < 0
-end
-
 # Translate a single arg of Plus, handling the Times[-1, x] → -x case
 function _translate_plus_arg(a::MExpr, ctx::TranslationContext)::String
     if is_head(a, "Times") && !isempty(a.args) && _is_neg_one(a.args[1])
@@ -374,7 +370,7 @@ function _translate_plus_arg(a::MExpr, ctx::TranslationContext)::String
 end
 
 # Join Plus args, treating "- x" terms specially
-function _join_plus(parts::Vector{String}, args::Vector{MExpr})::String
+function _join_plus(parts::Vector{String})::String
     if isempty(parts)
         return "0"
     end
@@ -392,7 +388,7 @@ function _join_plus(parts::Vector{String}, args::Vector{MExpr})::String
 end
 
 # Translate Times, handling special cases for negation and division
-function _translate_times(args::Vector{MExpr}, parent_prec::Int, ctx::TranslationContext)::String
+function _translate_times(args::Vector{MExpr}, ctx::TranslationContext)::String
     isempty(args) && return "1"
 
     # Detect unary negation: Times[-1, x]
@@ -536,25 +532,6 @@ function _translate_function(args::Vector{MExpr}, ctx::TranslationContext)::Stri
         return "($params$extra_name...) -> $(_translate(body, PREC_LOW, ctx))"
     end
     throw(TranslationError("Function requires 1 or 2 args, got $(length(args))"))
-end
-
-# Recursively find the maximum slot index in an expression
-function _max_slot(e::MExpr)::Int
-    if is_head(e, "Slot")
-        isempty(e.args) && return 1
-        e.args[1] isa MInteger && return e.args[1].value
-        return 1
-    end
-    e isa MExprNode || return 0
-    is_head(e, "Function") && return 0
-    max(_max_slot(e.head), maximum((_max_slot(a) for a in e.args); init=0))
-end
-
-function _has_slot_sequence(e::MExpr)::Bool
-    is_head(e, "SlotSequence") && return true
-    e isa MExprNode || return false
-    is_head(e, "Function") && return false
-    _has_slot_sequence(e.head) || any(_has_slot_sequence, e.args)
 end
 
 function _slot_index(e::MExprNode)
