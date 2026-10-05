@@ -312,15 +312,15 @@ function _parse_blank_token(t::Token)::MExpr
         return MSymbol(lexeme)
     end
 
-    sym_part   = lexeme[1:blank_start-1]
+    sym_part   = lexeme[1:prevind(lexeme, blank_start)]
     blank_part = lexeme[blank_start:end]
 
     # Count underscores
     ucount = 0
     i = 1
-    while i <= length(blank_part) && blank_part[i] == '_'
+    while i <= ncodeunits(blank_part) && blank_part[i] == '_'
         ucount += 1
-        i += 1
+        i = nextind(blank_part, i)
     end
     head_part = blank_part[i:end]  # e.g. "Integer" or ""
 

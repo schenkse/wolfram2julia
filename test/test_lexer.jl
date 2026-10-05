@@ -132,3 +132,15 @@ end
     @test tokenize("")[end].kind == TK_EOF
     @test length(tokenize(repeat("x + 1; ", 1000))) == 4001
 end
+
+@testset "Unicode scanning" begin
+    tokens = tokenize("αβ + \"λ🌍\" (* 日本 *) γ_")
+    @test tokens[1].lexeme == "αβ"
+    @test tokens[2].col == 4
+    @test tokens[3].lexeme == "λ🌍"
+    @test translate_string("αβ + γ") == "αβ + γ"
+    @test is_head(parse_string("γ_")[1], "Pattern")
+    err = try tokenize("αβ ?"); catch e; e; end
+    @test err isa LexError
+    @test err.col == 4
+end

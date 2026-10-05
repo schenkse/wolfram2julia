@@ -24,14 +24,14 @@ end
 
 # Peek one ahead
 function _peek(lx::Lexer, offset::Int = 1)
-    p = lx.pos + offset
+    p = nextind(lx.source, lx.pos, offset)
     p > ncodeunits(lx.source) ? '\0' : lx.source[p]
 end
 
 # Advance one character
 function _advance!(lx::Lexer)
     c = _cur(lx)
-    lx.pos += 1
+    lx.pos = nextind(lx.source, lx.pos)
     if c == '\n'
         lx.line += 1
         lx.col = 1
